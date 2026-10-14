@@ -1,7 +1,9 @@
 {
   "name": "Scopa",
   "short_name": "Scopa",
-  "description": "The classic Italian card game.",
+  "description": "Play Scopa, the classic Italian card game, against the computer or a friend.",
+  "lang": "en",
+  "categories": ["games", "entertainment"],
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

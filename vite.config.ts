@@ -1,16 +1,65 @@
+import { resolve } from 'node:path';
+import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
 const SERVER = process.env.SCOPA_SERVER ?? 'http://localhost:8787';
 
-export default defineConfig({
-  server: {
-    host: true,
-    proxy: {
-      '/api': SERVER,
-      '/ws': { target: SERVER.replace(/^http/, 'ws'), ws: true },
+/** Crawlable pages, in sitemap order. */
+const PAGES = [
+  { path: '/', priority: '1.0' },
+  { path: '/how-to-play-scopa/', priority: '0.8' },
+  { path: '/it/regole-scopa/', priority: '0.8' },
+];
+
+/**
+ * SEO: replaces %SITE% in the HTML pages with the public origin (VITE_PUBLIC_URL) so canonical,
+ * Open Graph and JSON-LD URLs are absolute, and emits robots.txt and sitemap.xml.
+ */
+function seo(site: string): Plugin {
+  return {
+    name: 'scopa-seo',
+    transformIndexHtml: (html) => html.replaceAll('%SITE%', site),
+    generateBundle() {
+      if (!site) this.warn('VITE_PUBLIC_URL is not set: SEO URLs will be relative and no sitemap.xml is generated.');
+      const robots = ['User-agent: *', 'Allow: /', 'Disallow: /api/', 'Disallow: /m/', site ? `Sitemap: ${site}/sitemap.xml` : ''].join('\n');
+      this.emitFile({ type: 'asset', fileName: 'robots.txt', source: `${robots.trim()}\n` });
+      if (!site) return;
+      const today = new Date().toISOString().slice(0, 10);
+      const urls = PAGES.map(
+        (p) => `  <url><loc>${site}${p.path}</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>${p.priority}</priority></url>`,
+      );
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sitemap.xml',
+        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`,
+      });
     },
-  },
-  worker: { format: 'es' },
-  build: { target: 'es2020', sourcemap: true },
-  test: { include: ['tests/**/*.test.ts'] },
+  };
+}
+
+export default defineConfig(({ mode }) => {
+  const site = (loadEnv(mode, process.cwd(), 'VITE_').VITE_PUBLIC_URL ?? '').replace(/\/$/, '');
+  return {
+    plugins: [seo(site)],
+    server: {
+      host: true,
+      proxy: {
+        '/api': SERVER,
+        '/ws': { target: SERVER.replace(/^http/, 'ws'), ws: true },
+      },
+    },
+    worker: { format: 'es' },
+    build: {
+      target: 'es2020',
+      sourcemap: true,
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'index.html'),
+          rules: resolve(__dirname, 'how-to-play-scopa/index.html'),
+          regole: resolve(__dirname, 'it/regole-scopa/index.html'),
+        },
+      },
+    },
+    test: { include: ['tests/**/*.test.ts'] },
+  };
 });

@@ -7,7 +7,60 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="description" content="Scopa — the classic Italian card game. Play the computer or a friend by link." />
+    <meta name="description" content="Play Scopa free online – the classic Italian card game. Challenge the computer at three difficulty levels or invite a friend by link. Works on phone and desktop, no sign-up." />
+    <meta name="keywords" content="scopa, scopa online, play scopa, scopa card game, italian card game, italian card games online, scopa gratis, gioco della scopa, scopa napoletana, carte napoletane, settebello, primiera, scopone, free card game, card game vs computer, multiplayer card game" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="author" content="Scopa" />
+    <meta name="application-name" content="Scopa" />
+    <meta name="apple-mobile-web-app-title" content="Scopa" />
+    <link rel="canonical" href="%SITE%/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Scopa" />
+    <meta property="og:title" content="Scopa – Play the Classic Italian Card Game Online" />
+    <meta property="og:description" content="Free Scopa in your browser: play the computer or a friend by link. Captures, sweeps, settebello and primiera." />
+    <meta property="og:url" content="%SITE%/" />
+    <meta property="og:image" content="%SITE%/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Scopa – the classic Italian card game" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="it_IT" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Scopa – Play the Classic Italian Card Game Online" />
+    <meta name="twitter:description" content="Free Scopa in your browser: play the computer or a friend by link." />
+    <meta name="twitter:image" content="%SITE%/og-image.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "name": "Scopa",
+            "url": "%SITE%/",
+            "inLanguage": ["en", "it", "es", "fr", "pt"]
+          },
+          {
+            "@type": ["VideoGame", "WebApplication"],
+            "name": "Scopa",
+            "alternateName": ["Scopa online", "Italian Scopa", "Gioco della Scopa"],
+            "description": "The classic Italian card game Scopa. Play against the computer at three difficulty levels or invite a friend by link.",
+            "url": "%SITE%/",
+            "image": "%SITE%/og-image.png",
+            "applicationCategory": "GameApplication",
+            "operatingSystem": "Any (web browser), Android, iOS",
+            "browserRequirements": "Requires JavaScript",
+            "genre": ["Card game", "Traditional card game", "Italian card game"],
+            "gamePlatform": ["Web browser", "Android", "iOS"],
+            "playMode": ["SinglePlayer", "MultiPlayer"],
+            "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 1, "maxValue": 2 },
+            "inLanguage": ["en", "it", "es", "fr", "pt"],
+            "isAccessibleForFree": true,
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "subjectOf": { "@type": "Article", "name": "How to play Scopa", "url": "%SITE%/how-to-play-scopa/" }
+          }
+        ]
+      }
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
@@ -15,7 +68,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet" />
-    <title>Scopa</title>
+    <title>Scopa – Play the Classic Italian Card Game Online Free</title>
     <style>
       #splash{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:radial-gradient(ellipse at center,#186b45 0%,#0e4c30 45%,#041910 100%);color:#f3c34f;font-family:Cinzel,Georgia,serif;transition:opacity .4s ease}
       #splash img{width:min(32vmin,160px);height:auto;border-radius:22%;box-shadow:0 10px 40px rgba(0,0,0,.5)}
@@ -32,7 +85,22 @@
   <body>
     <div id="splash"><img src="/icon-192.png" alt="" /><span>SCOPA</span></div>
     <div id="intro"><video src="/intro.mp4?v=2" playsinline preload="auto"></video><button type="button" class="sound" hidden>🔇 Tap for sound</button><button type="button" class="skip">Skip ›</button></div>
-    <div id="app"></div>
+    <div id="app">
+      <!-- Shown to crawlers and before the app loads; replaced when the game starts. -->
+      <main class="seo-fallback">
+        <h1>Scopa – the classic Italian card game</h1>
+        <p>
+          Play Scopa free in your browser on phone or desktop. Challenge the computer at three difficulty levels or invite a friend with a link: no sign-up,
+          no download. Capture cards, sweep the table for a scopa, grab the settebello and win the primiera.
+        </p>
+        <ul>
+          <li>Traditional 40-card Italian decks: Napoletane, Piacentine, Siciliane, Bergamasche, Trevisane and Milanesi</li>
+          <li>Single player vs AI (easy, medium, hard) and two-player online by link</li>
+          <li>Play to 11, 16 or 21 points, in English, Italiano, Español, Français and Português</li>
+        </ul>
+        <p><a href="/how-to-play-scopa/">How to play Scopa: rules, scoring and strategy</a> · <a href="/it/regole-scopa/" hreflang="it">Regole della Scopa</a></p>
+      </main>
+    </div>
     <div class="rotate-msg" aria-hidden="true"><span>📱↻</span></div>
     <script type="module" src="/src/client/main.ts"></script>
   </body>

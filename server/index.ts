@@ -59,6 +59,10 @@ const MIME: Record<string, string> = {
   '.webmanifest': 'application/manifest+json',
   '.map': 'application/json',
   '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4',
+  '.mp3': 'audio/mpeg',
+  '.txt': 'text/plain; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8',
 };
 
 function json(res: ServerResponse, status: number, body: unknown) {
@@ -113,7 +117,7 @@ function wellKnown(path: string, res: ServerResponse): boolean {
   return false;
 }
 
-function serveStatic(path: string, res: ServerResponse) {
+function serveStatic(path: string, req: IncomingMessage, res: ServerResponse) {
   if (!existsSync(DIST)) {
     res.writeHead(404, { 'content-type': 'text/plain' });
     res.end('Client not built. Run `npm run build`, or use `npm run dev` for development.');
@@ -121,12 +125,28 @@ function serveStatic(path: string, res: ServerResponse) {
   }
   const safe = normalize(decodeURIComponent(path)).replace(/^(\.\.[/\\])+/, '');
   let file = join(DIST, safe);
+  if (file.startsWith(DIST) && existsSync(file) && statSync(file).isDirectory()) file = join(file, 'index.html'); // static pages (/how-to-play-scopa/)
   if (!file.startsWith(DIST) || !existsSync(file) || statSync(file).isDirectory()) file = join(DIST, 'index.html'); // SPA fallback (/m/:room)
   const ext = extname(file);
-  res.writeHead(200, {
+  const size = statSync(file).size;
+  const headers = {
     'content-type': MIME[ext] ?? 'application/octet-stream',
     'cache-control': file.includes(`${join(DIST, 'assets')}`) ? 'public, max-age=31536000, immutable' : 'no-cache',
-  });
+    'accept-ranges': 'bytes',
+  };
+  // Range requests: Safari won't play video or audio without them.
+  const range = /^bytes=(d*)-(d*)$/.exec(req.headers.range ?? '');
+  if (range && (range[1] || range[2])) {
+    const start = range[1] ? Number(range[1]) : Math.max(0, size - Number(range[2]));
+    const end = range[1] && range[2] ? Math.min(Number(range[2]), size - 1) : size - 1;
+    if (start >= size || start > end) {
+      res.writeHead(416, { 'content-range': `bytes */${size}` });
+      return void res.end();
+    }
+    res.writeHead(206, { ...headers, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1 });
+    return void createReadStream(file, { start, end }).pipe(res);
+  }
+  res.writeHead(200, { ...headers, 'content-length': size });
   createReadStream(file).pipe(res);
 }
 
@@ -144,7 +164,7 @@ const server = createServer(async (req, res) => {
     }
     if (req.method === 'GET' && url.pathname === '/api/health') return json(res, 200, { ok: true, rooms: rooms.size });
     if (req.method === 'GET' && wellKnown(url.pathname, res)) return;
-    if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(url.pathname, res);
+    if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(url.pathname, req, res);
     json(res, 405, { error: 'method' });
   } catch {
     json(res, 400, { error: 'bad_request' });

@@ -64,6 +64,13 @@ export function home() {
         h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: settingsScreen }, '⚙︎ ', t('settings')), h('button', { class: 'btn ghost', onclick: () => rulesScreen(home) }, '📖 ', t('howToPlay'))),
       ),
       h('p', { class: 'stats-line' }, `${t('wins')}: ${stats.wins} · ${t('losses')}: ${stats.losses}`),
+      h(
+        'p',
+        { class: 'seo-links' },
+        h('a', { href: '/how-to-play-scopa/' }, 'Scopa rules'),
+        ' · ',
+        h('a', { href: '/it/regole-scopa/', hreflang: 'it' }, 'Regole della Scopa'),
+      ),
     );
   });
 }

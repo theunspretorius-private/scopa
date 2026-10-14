@@ -1420,3 +1420,19 @@ body > .overlay {
     transition-duration: 0.01ms !important;
   }
 }
+
+.seo-fallback {
+  padding: 24px 16px;
+  color: var(--muted);
+}
+.seo-fallback h1 {
+  color: var(--gold);
+}
+.seo-fallback a,
+.home .seo-links a {
+  color: var(--gold);
+}
+.home .seo-links {
+  font-size: 0.85rem;
+  color: var(--muted);
+}

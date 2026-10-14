@@ -1,5 +1,5 @@
 // Offline support: the single-player game works with no connection.
-const CACHE = 'scopa-v3';
+const CACHE = 'scopa-v4';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
@@ -22,10 +22,12 @@ self.addEventListener('fetch', (e) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('/', copy));
+          // Only the app shell goes under '/'; the static rules pages are cached under their own URL.
+          const key = url.pathname.startsWith('/how-to-play-scopa') || url.pathname.startsWith('/it/') ? req : '/';
+          caches.open(CACHE).then((c) => c.put(key, copy));
           return res;
         })
-        .catch(() => caches.match('/')),
+        .catch(() => caches.match(req).then((hit) => hit || caches.match('/'))),
     );
     return;
   }
