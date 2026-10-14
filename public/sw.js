@@ -1,5 +1,5 @@
 // Offline support: the single-player game works with no connection.
-const CACHE = 'scopa-v1';
+const CACHE = 'scopa-v2';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/', '/manifest.webmanifest', '/icon.svg'])));
@@ -14,7 +14,7 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api') || url.pathname.startsWith('/ws')) return;
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api') || url.pathname.startsWith('/ws') || url.pathname === '/intro.mp4') return; // video uses range requests; let the browser handle it
 
   if (req.mode === 'navigate') {
     // Network first for pages, fall back to the cached app shell.
