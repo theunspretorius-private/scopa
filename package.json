@@ -1,0 +1,38 @@
+{
+  "name": "scopa-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scopa Mobile — the classic Italian fishing card game, mobile-first, with AI opponents and link multiplayer.",
+  "scripts": {
+    "dev": "concurrently -k -n web,server \"vite\" \"tsx watch server/index.ts\"",
+    "dev:web": "vite",
+    "dev:server": "tsx watch server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "start": "NODE_ENV=production tsx server/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "cap:sync": "npm run build && cap sync"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/haptics": "^7.0.2",
+    "@capacitor/share": "^7.0.2",
+    "qrcode-generator": "^1.4.4",
+    "tsx": "^4.20.3",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.2",
+    "@types/node": "^22.16.5",
+    "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.6",
+    "vitest": "^5.0.4"
+  }
+}
