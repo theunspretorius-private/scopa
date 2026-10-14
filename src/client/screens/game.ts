@@ -12,6 +12,8 @@ import { t } from '../i18n';
 import { haptic } from '../native';
 import { recordResult, settings } from '../settings';
 
+const SETTEBELLO = 'DENARI_7';
+
 export interface GameNav {
   home(): void;
   rules(): void;
@@ -280,6 +282,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     // 2. Capture: everything slides into the capturer's pile.
     let after = tableWithCard;
     if (lp.captured.length) {
+      if ([lp.card, ...lp.captured].includes(SETTEBELLO)) await celebrateSettebello(mine, v.names[lp.seat]);
       const sweepCls = mine ? 'sweep-me' : 'sweep-opp';
       for (const id of [lp.card, ...lp.captured]) tableEl.querySelector(`[data-id="${id}"]`)?.classList.add(sweepCls);
       sfx.snap();
@@ -301,6 +304,9 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       renderTable(after, { taken: new Set(lp.leftover) });
       showBanner(t('lastTake'), 'info', 1300);
       await sleep(700);
+      if (lp.leftover.includes(SETTEBELLO)) {
+        await celebrateSettebello(lp.leftoverTo === v.you, v.names[lp.leftoverTo]);
+      }
       const cls = lp.leftoverTo === v.you ? 'sweep-me' : 'sweep-opp';
       tableEl.querySelectorAll('.card').forEach((el) => el.classList.add(cls));
       sfx.snap();
@@ -310,6 +316,34 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
 
     prevTableIds = new Set(after);
     renderFull(v);
+  }
+
+  /** The 7 of Coins is worth a point on its own: stop the show and make a proper fuss. */
+  async function celebrateSettebello(mine: boolean, name: string) {
+    tableEl.querySelector(`[data-id="${SETTEBELLO}"]`)?.classList.add('sb-taken');
+    const coins = Array.from({ length: 18 }, (_, i) =>
+      h('span', {
+        class: 'sb-coin',
+        style: `--a:${(i * 360) / 18 + Math.random() * 12}deg;--d:${110 + Math.random() * 90}px;--s:${0.6 + Math.random() * 0.6};--t:${Math.random() * 0.25}s`,
+      }),
+    );
+    const overlay = h(
+      'div',
+      { class: `sb-moment ${mine ? 'mine' : 'theirs'}`, role: 'status', 'aria-live': 'assertive' },
+      h('div', { class: 'sb-rays' }),
+      ...coins,
+      h('div', { class: 'sb-card' }, cardEl(SETTEBELLO)),
+      h('div', { class: 'sb-title' }, t('settebello') + '!'),
+      h('div', { class: 'sb-sub' }, mine ? t('settebelloYours') : t('settebelloTheirs', { name })),
+    );
+    felt.append(overlay);
+    sfx.settebello(mine);
+    haptic('heavy');
+    window.setTimeout(() => haptic('heavy'), 220);
+    await sleep(1900);
+    overlay.classList.add('out');
+    await sleep(320);
+    overlay.remove();
   }
 
   function showBanner(text: string, kind: 'scopa' | 'info', ms: number) {

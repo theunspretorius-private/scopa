@@ -81,6 +81,18 @@ export const sfx = {
     if (!settings.sound) return;
     [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.35, 0.18, 'triangle', i * 0.11));
   },
+  /** A bright coin-shower arpeggio for winning the 7 of Coins; a falling sigh when the opponent does. */
+  settebello: (mine: boolean) => {
+    if (!settings.sound) return;
+    if (mine) {
+      [784, 988, 1175, 1568, 1976].forEach((f, i) => tone(f, 0.5, 0.16, 'triangle', i * 0.08));
+      [2637, 3136, 2349, 3520, 2794, 3951].forEach((f, i) => tone(f, 0.12, 0.06, 'sine', 0.45 + i * 0.06));
+      [523, 659, 784].forEach((f) => tone(f, 0.9, 0.1, 'sine', 0.45));
+    } else {
+      [659, 622, 587, 554].forEach((f, i) => tone(f, 0.32, 0.14, 'triangle', i * 0.16));
+      tone(277, 0.7, 0.12, 'sine', 0.64);
+    }
+  },
   tick: () => settings.sound && tone(1100, 0.03, 0.08, 'square'),
   pop: () => settings.sound && tone(660, 0.07, 0.12, 'sine'),
 };

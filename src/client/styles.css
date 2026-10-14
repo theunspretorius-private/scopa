@@ -1059,6 +1059,144 @@ header.top h1 {
   margin: 0 auto;
 }
 
+/* ------------------------------------------------------------ settebello moment */
+
+.sb-moment {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  pointer-events: none;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 45%, rgba(255, 214, 90, 0.38), rgba(40, 20, 0, 0.55) 70%);
+  animation: sb-fade-in 0.3s ease-out;
+  transition: opacity 0.3s;
+}
+.sb-moment.theirs {
+  background: radial-gradient(circle at 50% 45%, rgba(255, 214, 90, 0.22), rgba(10, 5, 0, 0.7) 70%);
+}
+.sb-moment.out {
+  opacity: 0;
+}
+@keyframes sb-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.sb-rays {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 180vmax;
+  height: 180vmax;
+  margin: -90vmax 0 0 -90vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 228, 130, 0.32) 0deg 8deg, transparent 8deg 22deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 45%);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 45%);
+  animation: sb-spin 6s linear infinite;
+}
+.sb-moment.theirs .sb-rays {
+  opacity: 0.45;
+}
+@keyframes sb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sb-card {
+  position: relative;
+  z-index: 1;
+  animation: sb-card-in 0.75s cubic-bezier(0.18, 1.4, 0.3, 1) both;
+}
+.sb-card .card {
+  --cw: clamp(96px, 30vw, 140px);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 40px 10px rgba(255, 213, 74, 0.75), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+@keyframes sb-card-in {
+  from {
+    transform: scale(0.2) rotateY(540deg) rotate(-20deg);
+    opacity: 0;
+  }
+  70% {
+    transform: scale(1.12) rotateY(0) rotate(4deg);
+  }
+}
+.sb-title {
+  position: relative;
+  z-index: 1;
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 900;
+  font-size: clamp(2.4rem, 13vw, 4rem);
+  letter-spacing: 0.06em;
+  color: #ffe68a;
+  background: linear-gradient(180deg, #fff6c8 0%, #ffd54a 45%, #c8901c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 #5a3505) drop-shadow(0 0 18px rgba(255, 200, 60, 0.8));
+  animation: sb-title-in 0.6s 0.25s cubic-bezier(0.18, 1.5, 0.3, 1) both;
+}
+@keyframes sb-title-in {
+  from {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.sb-sub {
+  position: relative;
+  z-index: 1;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff3c4;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+  padding: 0 16px;
+  text-align: center;
+  animation: sb-fade-in 0.4s 0.55s both;
+}
+.sb-coin {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff8d0, #ffd54a 40%, #b07a12 100%);
+  box-shadow: 0 0 8px rgba(255, 213, 74, 0.9);
+  opacity: 0;
+  animation: sb-burst 1.3s var(--t) cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+@keyframes sb-burst {
+  0% {
+    opacity: 1;
+    transform: rotate(var(--a)) translateY(0) scale(0.3);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(var(--s)) rotateX(720deg);
+  }
+}
+.sb-moment.theirs .sb-coin {
+  display: none;
+}
+.table-grid .card.sb-taken {
+  z-index: 5;
+  animation: sb-taken 0.5s ease-in-out 3;
+}
+@keyframes sb-taken {
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 2px var(--gold), 0 0 30px 8px rgba(255, 213, 74, 0.9);
+  }
+}
+
 .turn-status {
   position: absolute;
   bottom: 8px;
