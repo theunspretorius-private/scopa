@@ -8,6 +8,9 @@ RUN npm ci
 
 # Copy source and build client + server bundle
 COPY . .
+# Public origin baked into share links, canonical/Open Graph URLs and sitemap.xml
+ARG VITE_PUBLIC_URL=https://scopa.afrispeel.co.za
+ENV VITE_PUBLIC_URL=$VITE_PUBLIC_URL
 RUN npm run build
 RUN npx esbuild server/index.ts --bundle --platform=node --format=esm --packages=external --outfile=dist-server/index.js
 
