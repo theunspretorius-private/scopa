@@ -104,7 +104,7 @@ const en = {
   rules: [
     'Scopa is played with a 40-card Italian deck: Coins, Cups, Swords and Clubs, Ace to 7 plus Fante (8), Cavallo (9) and Re (10).',
     'Each player gets 3 cards; 4 go face-up on the table. When both hands are empty, 3 more each are dealt until the deck runs out.',
-    'On your turn play one card. If it matches a table card of the same value you must take it. Otherwise you may take any group of cards that adds up to it.',
+    'On your turn play one card. If it matches a table card of the same value you must take it. Otherwise, if a group of cards adds up to it, you must take one such group.',
     'If your card matches a single card, you must take the single card rather than a sum.',
     "If nothing can be taken, your card stays on the table.",
     'Clearing the whole table is a Scopa: +1 point. (Not on the very last play of the round.)',
@@ -215,7 +215,7 @@ const it: Partial = {
   rules: [
     'Si gioca con un mazzo italiano da 40 carte: Denari, Coppe, Spade e Bastoni, dall’Asso al 7 più Fante (8), Cavallo (9) e Re (10).',
     'Ogni giocatore riceve 3 carte; 4 vanno scoperte in tavola. Quando le mani sono vuote se ne danno altre 3 finché il mazzo finisce.',
-    'Al tuo turno giochi una carta. Se in tavola c’è una carta dello stesso valore devi prenderla, altrimenti puoi prendere un gruppo di carte la cui somma è uguale.',
+    'Al tuo turno giochi una carta. Se in tavola c’è una carta dello stesso valore devi prenderla, altrimenti devi prendere un gruppo di carte la cui somma è uguale, se c’è.',
     'Se c’è una carta singola uguale, devi prendere quella e non la somma.',
     'Se non puoi prendere nulla, la carta resta in tavola.',
     'Se prendi tutte le carte in tavola fai Scopa: +1 punto (non all’ultima giocata della mano).',
@@ -317,7 +317,7 @@ const es: Partial = {
   rules: [
     'Se juega con una baraja italiana de 40 cartas: Oros, Copas, Espadas y Bastos, del As al 7 más Sota (8), Caballo (9) y Rey (10).',
     'Cada jugador recibe 3 cartas y 4 van boca arriba a la mesa. Cuando ambas manos se vacían se reparten 3 más hasta acabar el mazo.',
-    'En tu turno juegas una carta. Si hay una carta del mismo valor debes capturarla; si no, puedes capturar cartas cuya suma sea igual.',
+    'En tu turno juegas una carta. Si hay una carta del mismo valor debes capturarla; si no, debes capturar cartas cuya suma sea igual, si las hay.',
     'Si hay una carta individual igual, debes capturar esa y no una suma.',
     'Si no puedes capturar, tu carta queda en la mesa.',
     'Vaciar la mesa es Scopa: +1 punto (no en la última jugada de la ronda).',
@@ -420,7 +420,7 @@ const fr: Partial = {
   rules: [
     'On joue avec un jeu italien de 40 cartes : Deniers, Coupes, Épées et Bâtons, de l’As au 7 plus Valet (8), Cavalier (9) et Roi (10).',
     'Chacun reçoit 3 cartes ; 4 sont posées face visible. Quand les mains sont vides, on redonne 3 cartes jusqu’à épuisement.',
-    'À ton tour, joue une carte. Si une carte de même valeur est sur la table, tu dois la prendre ; sinon tu peux prendre des cartes dont la somme est égale.',
+    'À ton tour, joue une carte. Si une carte de même valeur est sur la table, tu dois la prendre ; sinon tu dois prendre des cartes dont la somme est égale, s’il y en a.',
     'Si une carte seule correspond, tu dois prendre celle-ci plutôt qu’une somme.',
     'Si tu ne peux rien prendre, ta carte reste sur la table.',
     'Vider la table, c’est une Scopa : +1 point (sauf au tout dernier coup).',
@@ -522,7 +522,7 @@ const pt: Partial = {
   rules: [
     'Joga-se com um baralho italiano de 40 cartas: Ouros, Copas, Espadas e Paus, do Ás ao 7 mais Valete (8), Cavalo (9) e Rei (10).',
     'Cada jogador recebe 3 cartas e 4 ficam viradas na mesa. Quando as mãos acabam, dão-se mais 3 até o baralho acabar.',
-    'Na tua vez jogas uma carta. Se houver uma carta do mesmo valor tens de a capturar; senão podes capturar cartas cuja soma seja igual.',
+    'Na tua vez jogas uma carta. Se houver uma carta do mesmo valor tens de a capturar; senão tens de capturar cartas cuja soma seja igual, se houver.',
     'Se houver uma carta individual igual, tens de capturar essa e não uma soma.',
     'Se não puderes capturar, a carta fica na mesa.',
     'Limpar a mesa é Scopa: +1 ponto (exceto na última jogada da ronda).',

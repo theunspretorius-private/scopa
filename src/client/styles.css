@@ -245,7 +245,13 @@ header.top h1 {
 
 /* ------------------------------------------------------------ home screen */
 
+.music-btn {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  right: 16px;
+}
 .home {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

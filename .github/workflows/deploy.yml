@@ -1,0 +1,93 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.env.example'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: gen-lang-client-0730597604
+  REGION: europe-west1
+  SERVICE: scopa
+  AR_REPO: scopa
+  IMAGE: europe-west1-docker.pkg.dev/gen-lang-client-0730597604/scopa/app
+  # Workload Identity Federation: Keyless and secure authentication from GitHub Actions
+  WIF_PROVIDER: projects/607109575025/locations/global/workloadIdentityPools/scopa-pool/providers/scopa-provider
+  WIF_SERVICE_ACCOUNT: scopa-deployer@gen-lang-client-0730597604.iam.gserviceaccount.com
+
+# id-token: write is required for OIDC federation to GCP
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-cloudrun-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER || env.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT || env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build Docker image
+        run: docker build -t "${IMAGE}:${{ github.sha }}" -t "${IMAGE}:latest" .
+
+      - name: Push Docker image
+        run: |
+          docker push "${IMAGE}:${{ github.sha }}"
+          docker push "${IMAGE}:latest"
+
+      - id: deploy
+        name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
+          # Cheapest viable profile for Cloud Run container:
+          # - min-instances=0      : scale to zero, $0 when nobody is playing
+          # - max-instances=1      : hard cap to eliminate runaway cost
+          # - concurrency=1000     : high concurrency so active sessions share single instance
+          # - cpu=1 / 256Mi        : lightweight Node.js runtime with ws & static files
+          # - cpu-throttling       : billed only during active requests/packets
+          # - no-cpu-boost         : avoid extra CPU charges at startup
+          # - gen1                 : fastest cold starts and lowest memory overhead
+          # - timeout=3600         : 1 hour connection timeout for WebSockets
+          flags: |
+            --allow-unauthenticated
+            --execution-environment=gen1
+            --min-instances=0
+            --max-instances=1
+            --concurrency=1000
+            --cpu=1
+            --memory=256Mi
+            --cpu-throttling
+            --no-cpu-boost
+            --timeout=3600
+
+      - name: Summary
+        run: |
+          echo "### Deployment Successful 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cloud Run URL:** ${{ steps.deploy.outputs.url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Custom Domain:** https://scopa.afrispeel.co.za" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image:** \`${{ env.IMAGE }}:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY

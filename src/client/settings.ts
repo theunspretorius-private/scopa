@@ -35,7 +35,7 @@ const defaults = (): Settings => ({
   deck: 'napoletane',
   showNumbers: true, // ON by default for new users
   sound: true,
-  music: false,
+  music: true,
   haptics: true,
   emotesMuted: false,
   name: '',

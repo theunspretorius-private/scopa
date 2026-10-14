@@ -3,7 +3,7 @@ import type { Seat } from '../../engine/round';
 import { captureOptions, type Move } from '../../engine/rules';
 import { primiera } from '../../engine/scoring';
 import { EMOTES, type EmoteId, type GameView } from '../../net/protocol';
-import { sfx } from '../audio';
+import { musicIcon, sfx, toggleMusic } from '../audio';
 import { backEl, cardEl } from '../cardEl';
 import type { ConnStatus, GameController } from '../controllers/types';
 import { DECKS } from '../decks';
@@ -477,6 +477,16 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     if (shown) renderHand(shown.hand, shown);
   }
 
+  function musicBtn() {
+    const label = () => `${musicIcon()} ${t('music')}`;
+    const b = h('button', { class: 'btn ghost', 'aria-pressed': String(settings.music) }, label());
+    b.addEventListener('click', () => {
+      b.setAttribute('aria-pressed', String(toggleMusic()));
+      b.textContent = label();
+    });
+    return b;
+  }
+
   function openMenu() {
     const quit = () => {
       if (shown?.status === 'MATCH_OVER' || confirm(t('quitConfirm'))) nav.home();
@@ -489,6 +499,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
         h('h2', null, 'Scopa'),
         h('button', { class: 'btn', onclick: () => closeOverlay() }, t('continue')),
         h('button', { class: 'btn ghost', onclick: () => nav.rules() }, t('howToPlay')),
+        musicBtn(),
         h('button', { class: 'btn danger', onclick: quit }, t('quit')),
       ),
     );

@@ -18,12 +18,12 @@ export function primiera(cards: readonly Card[]): PrimieraResult {
   return { score: chosen.reduce((s, c) => s + c.primieraValue, 0), cards: chosen, suitsCovered: chosen.length };
 }
 
-/** Returns the winning seat of the primiera, or null if tied. */
+/** Returns the winning seat of the primiera, or null if tied. A player missing a suit cannot win it. */
 export function primieraWinner(a: PrimieraResult, b: PrimieraResult): Seat | null {
   const fullA = a.suitsCovered === 4;
   const fullB = b.suitsCovered === 4;
   if (fullA !== fullB) return fullA ? 0 : 1;
-  if (a.score === b.score) return null;
+  if (!fullA || a.score === b.score) return null;
   return a.score > b.score ? 0 : 1;
 }
 

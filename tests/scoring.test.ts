@@ -16,9 +16,15 @@ describe('primiera', () => {
     const missing = primiera(C('DENARI_7', 'COPPE_7', 'SPADE_7'));
     expect(primieraWinner(missing, full)).toBe(1);
   });
-  it('both missing suits compares totals; equal totals tie', () => {
-    expect(primieraWinner(primiera(C('DENARI_7')), primiera(C('COPPE_6')))).toBe(0);
+  it('nobody wins when both players are missing a suit', () => {
+    expect(primieraWinner(primiera(C('DENARI_7')), primiera(C('COPPE_6')))).toBe(null);
     expect(primieraWinner(primiera(C('DENARI_7')), primiera(C('COPPE_7')))).toBe(null);
+  });
+  it('equal full totals tie', () => {
+    const a = primiera(C('DENARI_7', 'COPPE_7', 'SPADE_7', 'BASTONI_7'));
+    const b = primiera(C('DENARI_10', 'COPPE_7', 'SPADE_7', 'BASTONI_7', 'DENARI_7'));
+    expect(primieraWinner(a, primiera(C('DENARI_6', 'COPPE_7', 'SPADE_7', 'BASTONI_7')))).toBe(0);
+    expect(primieraWinner(a, b)).toBe(null);
   });
 });
 

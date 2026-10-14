@@ -2,7 +2,7 @@ import { DIFFICULTIES, type Difficulty } from '../ai/observation';
 import { TARGET_SCORES, type TargetScore } from '../engine/match';
 import { ROOM_ID_RE, type CreateRoomResponse, type RoomConfig, type TurnSeconds } from '../net/protocol';
 import qrcode from 'qrcode-generator';
-import { syncMusic, unlockAudio } from './audio';
+import { musicIcon, toggleMusic, unlockAudio } from './audio';
 import { cardEl } from './cardEl';
 import { LocalController } from './controllers/local';
 import { OnlineController } from './controllers/online';
@@ -45,9 +45,15 @@ export function home() {
   setPath('/');
   mount(() => {
     const fan = h('div', { class: 'hero-fan' }, ...['COPPE_10', 'DENARI_7', 'SPADE_1'].map((id, i) => cardEl(id, `hero h${i}`)));
+    const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music') }, musicIcon());
+    muteBtn.addEventListener('click', () => {
+      toggleMusic();
+      muteBtn.textContent = musicIcon();
+    });
     return h(
       'div',
       { class: 'screen home' },
+      muteBtn,
       h('div', { class: 'logo' }, h('h1', null, 'Scopa'), h('p', null, t('tagline'))),
       fan,
       h(
@@ -347,9 +353,7 @@ function settingsScreen() {
       }),
       toggle(t('sound'), settings.sound, (v) => updateSettings({ sound: v })),
       toggle(t('music'), settings.music, (v) => {
-        updateSettings({ music: v });
-        unlockAudio();
-        syncMusic();
+        if (v !== settings.music) toggleMusic();
       }),
       toggle(t('haptics'), settings.haptics, (v) => updateSettings({ haptics: v })),
       toggle(t('emotesMuted'), settings.emotesMuted, (v) => updateSettings({ emotesMuted: v })),

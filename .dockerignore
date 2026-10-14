@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-server
+.git
+.github
+tests
+android
+ios
+.capacitor
+*.log

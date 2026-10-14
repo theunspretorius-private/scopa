@@ -1,8 +1,8 @@
-import { settings } from './settings';
+import { settings, updateSettings } from './settings';
 
 /**
- * Procedural audio (no asset downloads): card slides, capture snaps, the scopa "broom" sweep,
- * and a gentle mandolin-style tremolo loop for background music.
+ * Procedural sound effects (card slides, capture snaps, the scopa "broom" sweep) plus a
+ * background music playlist that cycles through the tracks in /music.
  */
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -26,6 +26,7 @@ function ac(): AudioContext | null {
 export function unlockAudio() {
   const c = ac();
   if (c && c.state === 'suspended') void c.resume();
+  unlocked = true;
   syncMusic();
 }
 
@@ -86,47 +87,51 @@ export const sfx = {
 
 // ------------------------------------------------------------------ music
 
-let musicTimer: number | null = null;
-let musicGain: GainNode | null = null;
-let step = 0;
+const TRACKS = ['/music/settebello.mp3', '/music/afternoon-in-the-square.mp3', '/music/settebello-2.mp3'];
+const MUSIC_VOLUME = 0.35;
 
-// A simple I–IV–V–I progression in D major, played as mandolin tremolo + guitar bass.
-const PROG = [
-  [293.66, 369.99, 440.0],
-  [392.0, 493.88, 587.33],
-  [440.0, 554.37, 659.25],
-  [293.66, 369.99, 440.0],
-];
+let player: HTMLAudioElement | null = null;
+let track = 0;
+let unlocked = false;
+let held = false;
 
-function musicTick() {
-  const c = ac();
-  if (!c || !musicGain) return;
-  const chord = PROG[Math.floor(step / 8) % PROG.length];
-  const beat = step % 8;
-  if (beat === 0) tone(chord[0] / 2, 1.2, 0.18, 'sine', 0, musicGain);
-  const note = chord[[0, 1, 2, 1, 2, 1, 0, 1][beat]] * (beat === 4 ? 2 : 1);
-  for (let k = 0; k < 3; k++) tone(note, 0.09, 0.06, 'sawtooth', k * 0.06, musicGain);
-  step++;
+/** Keep the music silent while something else (the intro video) is playing. */
+export function holdMusic(hold: boolean) {
+  held = hold;
+  syncMusic();
+}
+
+function musicPlayer(): HTMLAudioElement {
+  if (player) return player;
+  player = new Audio(TRACKS[track]);
+  player.preload = 'auto';
+  player.volume = MUSIC_VOLUME;
+  // When a track finishes, move on to the next one and wrap around.
+  player.addEventListener('ended', () => {
+    track = (track + 1) % TRACKS.length;
+    player!.src = TRACKS[track];
+    syncMusic();
+  });
+  return player;
 }
 
 export function syncMusic() {
-  const c = ac();
-  if (!c) return;
-  const want = settings.music && c.state === 'running' && document.visibilityState === 'visible';
-  if (want && musicTimer === null) {
-    musicGain = c.createGain();
-    musicGain.gain.value = 0.25;
-    const lp = c.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 1800;
-    musicGain.connect(lp).connect(master!);
-    musicTimer = window.setInterval(musicTick, 330);
-  } else if (!want && musicTimer !== null) {
-    clearInterval(musicTimer);
-    musicTimer = null;
-    musicGain?.disconnect();
-    musicGain = null;
-  }
+  if (unlocked) ac(); // keep sound effects unlocked with the same gesture
+  const want = settings.music && unlocked && !held && document.visibilityState === 'visible';
+  if (want) {
+    const p = musicPlayer();
+    if (p.paused) void p.play().catch(() => {});
+  } else player?.pause();
 }
+
+/** Mute/unmute the music; returns the new state. */
+export function toggleMusic(): boolean {
+  updateSettings({ music: !settings.music });
+  unlocked = true;
+  syncMusic();
+  return settings.music;
+}
+
+export const musicIcon = (): string => (settings.music ? '🔊' : '🔇');
 
 document.addEventListener('visibilitychange', syncMusic);

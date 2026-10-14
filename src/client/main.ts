@@ -1,5 +1,6 @@
 import './styles.css';
 import { boot } from './app';
+import { holdMusic } from './audio';
 
 boot();
 playIntro();
@@ -10,13 +11,15 @@ function playIntro() {
   const splash = document.getElementById('splash');
   const intro = document.getElementById('intro');
   const video = intro?.querySelector('video');
-  const skip = intro?.querySelector('button');
+  const skip = intro?.querySelector<HTMLButtonElement>('button.skip');
+  const sound = intro?.querySelector<HTMLButtonElement>('button.sound');
   const closeSplash = () => {
     splash?.classList.add('hide');
     setTimeout(() => splash?.remove(), 500);
   };
-  if (!intro || !video || !skip) return closeSplash();
+  if (!intro || !video || !skip || !sound) return closeSplash();
 
+  holdMusic(true);
   let done = false;
   const finish = () => {
     if (done) return;
@@ -24,18 +27,32 @@ function playIntro() {
     video.pause();
     intro.remove();
     closeSplash();
+    holdMusic(false);
   };
-  skip.addEventListener('click', finish);
+  const shown = () => {
+    intro.classList.add('on');
+    closeSplash();
+  };
+  const unmute = () => {
+    video.muted = false;
+    sound.hidden = true;
+  };
+  skip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    finish();
+  });
+  // Tapping anywhere on a muted intro turns the sound on.
+  intro.addEventListener('click', () => video.muted && unmute());
   video.addEventListener('ended', finish);
   video.addEventListener('error', finish);
 
-  video.play().then(
-    () => {
-      intro.classList.add('on');
-      closeSplash();
-    },
-    finish, // autoplay blocked or unsupported: go straight to the game
-  );
+  // Try with sound first; browsers that block audible autoplay get a muted start
+  // plus a "tap for sound" button.
+  video.play().then(shown, () => {
+    video.muted = true;
+    sound.hidden = false;
+    video.play().then(shown, finish); // can't play at all: go straight to the game
+  });
   setTimeout(() => !intro.classList.contains('on') && finish(), 4000);
 }
 
