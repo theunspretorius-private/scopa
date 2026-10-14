@@ -1,0 +1,106 @@
+:root {
+  --bg: #072a1a;
+  --bg-2: #0e4c30;
+  --ink: #fbf6ec;
+  --muted: #c4d7cb;
+  --gold: #f3c34f;
+  --line: rgba(255, 255, 255, 0.14);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at top, var(--bg-2) 0%, var(--bg) 60%) fixed, var(--bg);
+  color: var(--ink);
+  font: 17px/1.65 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+nav.crumbs {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+nav.crumbs a,
+a {
+  color: var(--gold);
+}
+
+h1,
+h2,
+h3 {
+  font-family: Cinzel, Georgia, serif;
+  color: var(--gold);
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: clamp(2rem, 6vw, 2.8rem);
+  margin: 0.4em 0 0.3em;
+}
+
+h2 {
+  margin-top: 2em;
+  padding-top: 0.6em;
+  border-top: 1px solid var(--line);
+}
+
+.lead {
+  font-size: 1.15rem;
+  color: var(--muted);
+}
+
+.cta {
+  display: inline-block;
+  margin: 12px 0 8px;
+  padding: 14px 26px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #261c14;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+th {
+  color: var(--gold);
+}
+
+details {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 10px 0;
+}
+
+summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+footer {
+  margin-top: 48px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

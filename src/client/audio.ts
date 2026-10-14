@@ -98,6 +98,9 @@ let held = false;
 /** Keep the music silent while something else (the intro video) is playing. */
 export function holdMusic(hold: boolean) {
   held = hold;
+  // Releasing the hold (intro finished) starts the music straight away. If the browser
+  // still blocks audio, play() fails quietly and the first tap starts it instead.
+  if (!hold) unlocked = true;
   syncMusic();
 }
 
