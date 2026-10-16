@@ -2,7 +2,7 @@ import { DIFFICULTIES, type Difficulty } from '../ai/observation';
 import { TARGET_SCORES, type TargetScore } from '../engine/match';
 import { ROOM_ID_RE, type CreateRoomResponse, type RoomConfig, type TurnSeconds } from '../net/protocol';
 import qrcode from 'qrcode-generator';
-import { musicIcon, toggleMusic, unlockAudio } from './audio';
+import { currentTrack, musicIcon, sfx, skipTrack, startMusic, toggleMusic, unlockAudio } from './audio';
 import { cardEl } from './cardEl';
 import { LocalController } from './controllers/local';
 import { OnlineController } from './controllers/online';
@@ -10,6 +10,7 @@ import type { GameController } from './controllers/types';
 import { DECKS, DECK_ORDER } from './decks';
 import { h, segmented, toast, toggle } from './dom';
 import { LANGS, LANG_NAMES, rulesText, setLang, t, type Lang } from './i18n';
+import { introCard, showIntroVideo } from './introVideo';
 import { copyText, onDeepLink, publicOrigin, serverOrigin, shareLink } from './native';
 import { gameScreen } from './screens/game';
 import { isDeckUnlocked, roomToken, settings, stats, updateSettings, type DeckId } from './settings';
@@ -36,7 +37,26 @@ function setPath(path: string) {
 }
 
 const header = (title: string, back: () => void = home) =>
-  h('header', { class: 'top' }, h('button', { class: 'icon-btn', 'aria-label': t('back'), onclick: back }, '‹'), h('h1', null, title));
+  h(
+    'header',
+    { class: 'top' },
+    h('button', { class: 'icon-btn', 'aria-label': t('back'), onclick: back }, '‹'),
+    h('h1', null, title),
+    h(
+      'button',
+      {
+        class: 'icon-btn music-skip-btn header-skip-btn',
+        'aria-label': t('nextTrack'),
+        title: t('nextTrack'),
+        onclick: () => {
+          const trk = skipTrack();
+          sfx.tick();
+          toast(`🎵 ${trk.title}`);
+        },
+      },
+      '⏭',
+    ),
+  );
 
 // ------------------------------------------------------------------ home
 
@@ -45,15 +65,27 @@ export function home() {
   setPath('/');
   mount(() => {
     const fan = h('div', { class: 'hero-fan' }, ...['COPPE_10', 'DENARI_7', 'SPADE_1'].map((id, i) => cardEl(id, `hero h${i}`)));
-    const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music') }, musicIcon());
+    const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music'), title: t('music') }, musicIcon());
     muteBtn.addEventListener('click', () => {
       toggleMusic();
       muteBtn.textContent = musicIcon();
     });
+    const skipBtn = h(
+      'button',
+      { class: 'icon-btn music-skip-btn', 'aria-label': t('nextTrack'), title: t('nextTrack') },
+      '⏭',
+    );
+    skipBtn.addEventListener('click', () => {
+      const trk = skipTrack();
+      muteBtn.textContent = musicIcon();
+      sfx.tick();
+      toast(`🎵 ${trk.title}`);
+    });
+    const musicControls = h('div', { class: 'music-controls' }, muteBtn, skipBtn);
     return h(
       'div',
       { class: 'screen home' },
-      muteBtn,
+      musicControls,
       h('div', { class: 'logo' }, h('h1', null, 'Scopa'), h('p', null, t('tagline'))),
       fan,
       h(
@@ -70,6 +102,8 @@ export function home() {
         h('a', { href: '/how-to-play-scopa/' }, 'Scopa rules'),
         ' · ',
         h('a', { href: '/it/regole-scopa/', hreflang: 'it' }, 'Regole della Scopa'),
+        ' · ',
+        h('a', { href: 'https://afrispeel.co.za/scopa', target: '_blank', rel: 'noopener', hreflang: 'af' }, 'Afrispeel'),
       ),
     );
   });
@@ -346,6 +380,21 @@ function settingsScreen() {
     });
     const name = h('input', { type: 'text', maxlength: 20, value: settings.name, placeholder: t('name') }) as HTMLInputElement;
     name.addEventListener('change', () => updateSettings({ name: name.value.trim() }));
+    const trackSpan = h('span', { class: 'muted music-track-name' }, `🎵 ${currentTrack().title}`);
+    const skipSettingBtn = h(
+      'button',
+      {
+        class: 'btn ghost small',
+        onclick: () => {
+          const trk = skipTrack();
+          sfx.tick();
+          trackSpan.textContent = `🎵 ${trk.title}`;
+          toast(`🎵 ${trk.title}`);
+        },
+      },
+      '⏭ ',
+      t('nextTrack'),
+    );
     return h(
       'div',
       { class: 'screen form' },
@@ -362,8 +411,10 @@ function settingsScreen() {
       toggle(t('music'), settings.music, (v) => {
         if (v !== settings.music) toggleMusic();
       }),
+      h('div', { class: 'music-settings-row' }, trackSpan, skipSettingBtn),
       toggle(t('haptics'), settings.haptics, (v) => updateSettings({ haptics: v })),
       toggle(t('emotesMuted'), settings.emotesMuted, (v) => updateSettings({ emotesMuted: v })),
+      h('button', { class: 'btn ghost intro-settings-btn', onclick: () => showIntroVideo() }, '🎬 ', t('watchIntro')),
       h('h3', null, t('stats')),
       h('p', { class: 'muted' }, `${t('wins')}: ${stats.wins} · ${t('losses')}: ${stats.losses} · ${t('HARD')}: ${stats.winsByDifficulty.HARD}`),
     );
@@ -375,14 +426,21 @@ function rulesContent(): HTMLElement {
 }
 
 function rulesScreen(back: () => void) {
-  mount(() => h('div', { class: 'screen form' }, header(t('howToPlay'), back), rulesContent()));
+  mount(() => h('div', { class: 'screen form' }, header(t('howToPlay'), back), introCard(), rulesContent()));
 }
 
 function rulesOverlay() {
   const el = h(
     'div',
     { class: 'overlay show rules-ov' },
-    h('div', { class: 'sheet tall' }, h('h2', null, t('howToPlay')), rulesContent(), h('button', { class: 'btn primary', onclick: () => el.remove() }, t('continue'))),
+    h(
+      'div',
+      { class: 'sheet tall' },
+      h('h2', null, t('howToPlay')),
+      h('button', { class: 'btn ghost intro-overlay-btn', onclick: () => showIntroVideo() }, '🎬 ', t('watchIntro')),
+      rulesContent(),
+      h('button', { class: 'btn primary', onclick: () => el.remove() }, t('continue')),
+    ),
   );
   document.body.append(el);
 }
@@ -397,7 +455,7 @@ export function route(path: string) {
 
 export function boot() {
   setLang(settings.lang);
-  document.addEventListener('pointerdown', unlockAudio, { once: true });
+  startMusic();
   void onDeepLink((path) => route(path));
   route(location.pathname);
 }

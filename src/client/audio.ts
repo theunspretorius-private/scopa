@@ -10,6 +10,7 @@ let noiseBuf: AudioBuffer | null = null;
 
 function ac(): AudioContext | null {
   if (ctx) return ctx;
+  if (typeof window === 'undefined') return null;
   const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AC) return null;
   ctx = new AC();
@@ -99,43 +100,161 @@ export const sfx = {
 
 // ------------------------------------------------------------------ music
 
-const TRACKS = ['/music/settebello.mp3', '/music/afternoon-in-the-square.mp3', '/music/settebello-2.mp3'];
+declare const __MUSIC_FILES__: string[] | undefined;
+
+export interface Track {
+  url: string;
+  title: string;
+}
+
+const KNOWN_TITLES: Record<string, string> = {
+  'settebello.mp3': 'Settebello',
+  'afternoon-in-the-square.mp3': 'Afternoon in the Square',
+  'settebello-2.mp3': 'Settebello II',
+  'Pomeriggio_in_Piazza.mp3': 'Pomeriggio in Piazza',
+  'A_Move_in_the_Palazzo.mp3': 'A Move in the Palazzo',
+  'Festa_in_Piazza.mp3': 'Festa in Piazza',
+  'The_Winning_Hand.mp3': 'The Winning Hand',
+  'Settebello_in_tasca.mp3': 'Settebello in Tasca',
+};
+
+function formatTrackTitle(filename: string): string {
+  if (KNOWN_TITLES[filename]) return KNOWN_TITLES[filename];
+  return filename
+    .replace(/\.mp3$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const ALL_MUSIC_FILES: string[] = Array.from(
+  new Set([
+    ...Object.keys(KNOWN_TITLES),
+    ...(typeof __MUSIC_FILES__ !== 'undefined' && __MUSIC_FILES__.length ? __MUSIC_FILES__ : []),
+  ]),
+);
+
+export const TRACKS: Track[] = ALL_MUSIC_FILES.map((filename) => ({
+  url: `/music/${filename}`,
+  title: formatTrackTitle(filename),
+}));
+
 const MUSIC_VOLUME = 0.35;
 
 let player: HTMLAudioElement | null = null;
 let track = 0;
-let unlocked = false;
+let unlocked = true;
 let held = false;
+let unlockListenersAttached = false;
+
+const GESTURE_EVENTS = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'click', 'keydown'] as const;
+
+function attachUnlockListeners() {
+  if (unlockListenersAttached || typeof window === 'undefined') return;
+  unlockListenersAttached = true;
+
+  const detach = () => {
+    if (!unlockListenersAttached) return;
+    unlockListenersAttached = false;
+    for (const ev of GESTURE_EVENTS) {
+      window.removeEventListener(ev, onGesture, true);
+    }
+  };
+
+  const onGesture = () => {
+    const c = ac();
+    if (c && c.state === 'suspended') void c.resume().catch(() => {});
+    unlocked = true;
+    const isVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
+    const want = settings.music && !held && isVisible;
+    if (!want) {
+      detach();
+      return;
+    }
+    const p = musicPlayer();
+    if (!p || !p.paused) {
+      detach();
+      return;
+    }
+    void p.play().then(
+      () => detach(),
+      () => {
+        // Keep listener active for subsequent gesture events (e.g. click/pointerup) if pointerdown wasn't enough
+      },
+    );
+  };
+
+  for (const ev of GESTURE_EVENTS) {
+    window.addEventListener(ev, onGesture, { capture: true, passive: true });
+  }
+}
+
+/** Start background music immediately on app launch, falling back to first gesture if browser blocks autoplay. */
+export function startMusic() {
+  unlocked = true;
+  attachUnlockListeners();
+  syncMusic();
+}
 
 /** Keep the music silent while something else (the intro video) is playing. */
 export function holdMusic(hold: boolean) {
   held = hold;
-  // Releasing the hold (intro finished) starts the music straight away. If the browser
-  // still blocks audio, play() fails quietly and the first tap starts it instead.
+  // Releasing the hold (video finished/dismissed) resumes the music.
   if (!hold) unlocked = true;
   syncMusic();
 }
 
-function musicPlayer(): HTMLAudioElement {
+function musicPlayer(): HTMLAudioElement | null {
   if (player) return player;
-  player = new Audio(TRACKS[track]);
+  if (typeof Audio === 'undefined') return null;
+  player = new Audio(TRACKS[track].url);
   player.preload = 'auto';
   player.volume = MUSIC_VOLUME;
-  // When a track finishes, move on to the next one and wrap around.
+  // When a track finishes, move on to the next one and wrap around the playlist.
   player.addEventListener('ended', () => {
     track = (track + 1) % TRACKS.length;
-    player!.src = TRACKS[track];
+    player!.src = TRACKS[track].url;
+    syncMusic();
+  });
+  player.addEventListener('error', () => {
+    // If a track encounters an issue, gracefully advance to next
+    track = (track + 1) % TRACKS.length;
+    player!.src = TRACKS[track].url;
     syncMusic();
   });
   return player;
 }
 
+export function currentTrack(): Track {
+  return TRACKS[track];
+}
+
+/** Skip to the next track in the playlist loop; returns the new track info. */
+export function skipTrack(): Track {
+  track = (track + 1) % TRACKS.length;
+  unlocked = true;
+  if (!settings.music) {
+    updateSettings({ music: true });
+  }
+  const p = musicPlayer();
+  if (p) {
+    p.src = TRACKS[track].url;
+    p.currentTime = 0;
+  }
+  syncMusic();
+  return TRACKS[track];
+}
+
 export function syncMusic() {
-  if (unlocked) ac(); // keep sound effects unlocked with the same gesture
-  const want = settings.music && unlocked && !held && document.visibilityState === 'visible';
+  const isVisible = typeof document === 'undefined' || document.visibilityState === 'visible';
+  const want = settings.music && unlocked && !held && isVisible;
   if (want) {
     const p = musicPlayer();
-    if (p.paused) void p.play().catch(() => {});
+    if (p && p.paused) {
+      void p.play().catch(() => {
+        attachUnlockListeners();
+      });
+    }
   } else player?.pause();
 }
 
@@ -149,4 +268,6 @@ export function toggleMusic(): boolean {
 
 export const musicIcon = (): string => (settings.music ? '🔊' : '🔇');
 
-document.addEventListener('visibilitychange', syncMusic);
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', syncMusic);
+}

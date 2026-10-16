@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { readdirSync } from 'node:fs';
 import { loadEnv, type Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
@@ -39,7 +40,14 @@ function seo(site: string): Plugin {
 
 export default defineConfig(({ mode }) => {
   const site = (loadEnv(mode, process.cwd(), 'VITE_').VITE_PUBLIC_URL || 'https://scopa.afrispeel.co.za').replace(/\/$/, '');
+  let musicFiles: string[] = [];
+  try {
+    musicFiles = readdirSync(resolve(__dirname, 'public/music')).filter((f) => f.endsWith('.mp3'));
+  } catch {}
   return {
+    define: {
+      __MUSIC_FILES__: JSON.stringify(musicFiles),
+    },
     plugins: [seo(site)],
     server: {
       host: true,

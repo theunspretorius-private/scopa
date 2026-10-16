@@ -3,7 +3,7 @@ import type { Seat } from '../../engine/round';
 import { captureOptions, type Move } from '../../engine/rules';
 import { primiera } from '../../engine/scoring';
 import { EMOTES, type EmoteId, type GameView } from '../../net/protocol';
-import { musicIcon, sfx, toggleMusic } from '../audio';
+import { currentTrack, musicIcon, sfx, skipTrack, toggleMusic } from '../audio';
 import { backEl, cardEl } from '../cardEl';
 import type { ConnStatus, GameController } from '../controllers/types';
 import { DECKS } from '../decks';
@@ -89,8 +89,22 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
   const mePile = h('button', { class: 'pile me', onclick: () => openInspector() });
   const meTimer = h('div', { class: 'timer' });
   const meBubble = h('div', { class: 'bubble me', 'aria-live': 'polite' });
+  const skipMusicBtn = h(
+    'button',
+    {
+      class: 'icon-btn music-skip-btn game-skip-btn',
+      'aria-label': t('nextTrack'),
+      title: t('nextTrack'),
+      onclick: () => {
+        const trk = skipTrack();
+        sfx.tick();
+        toast(`🎵 ${trk.title}`);
+      },
+    },
+    '⏭',
+  );
   const emoteBtn = h('button', { class: 'icon-btn', 'aria-label': 'Emotes', onclick: () => openEmotes() }, '💬');
-  const meBar = h('footer', { class: 'bar me-bar' }, h('div', { class: 'p-line' }, meName, meScore), mePile, emoteBtn, meTimer, meBubble);
+  const meBar = h('footer', { class: 'bar me-bar' }, h('div', { class: 'p-line' }, meName, meScore), mePile, skipMusicBtn, emoteBtn, meTimer, meBubble);
 
   const connEl = h('div', { class: 'conn hidden' });
   const overlay = h('div', { class: 'overlay hidden' });
@@ -521,10 +535,28 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     return b;
   }
 
+  function skipBtn(onSkip?: () => void) {
+    const b = h('button', { class: 'btn ghost', 'aria-label': t('nextTrack'), title: t('nextTrack') }, `⏭ ${t('nextTrack')}`);
+    b.addEventListener('click', () => {
+      const trk = skipTrack();
+      sfx.tick();
+      toast(`🎵 ${trk.title}`);
+      onSkip?.();
+    });
+    return b;
+  }
+
   function openMenu() {
     const quit = () => {
       if (shown?.status === 'MATCH_OVER' || confirm(t('quitConfirm'))) nav.home();
     };
+    const trackLabel = h('p', { class: 'muted menu-track-name' }, `🎵 ${currentTrack().title}`);
+    const mBtn = musicBtn();
+    const sBtn = skipBtn(() => {
+      mBtn.setAttribute('aria-pressed', String(settings.music));
+      mBtn.textContent = `${musicIcon()} ${t('music')}`;
+      trackLabel.textContent = `🎵 ${currentTrack().title}`;
+    });
     openOverlay(
       'menu',
       h(
@@ -533,7 +565,8 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
         h('h2', null, 'Scopa'),
         h('button', { class: 'btn', onclick: () => closeOverlay() }, t('continue')),
         h('button', { class: 'btn ghost', onclick: () => nav.rules() }, t('howToPlay')),
-        musicBtn(),
+        h('div', { class: 'row' }, mBtn, sBtn),
+        trackLabel,
         h('button', { class: 'btn danger', onclick: quit }, t('quit')),
       ),
     );

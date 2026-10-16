@@ -245,10 +245,60 @@ header.top h1 {
 
 /* ------------------------------------------------------------ home screen */
 
+.music-controls {
+  position: absolute;
+  top: calc(12px + var(--safe-top));
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+.music-controls .music-btn {
+  position: static;
+}
 .music-btn {
   position: absolute;
   top: calc(12px + var(--safe-top));
   right: 16px;
+}
+.music-skip-btn {
+  width: 36px;
+  height: 36px;
+  font-size: 0.95rem;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--glass-border);
+  color: var(--gold-soft);
+  opacity: 0.8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: opacity 0.2s, background 0.2s, transform 0.15s, color 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 0;
+  line-height: 1;
+}
+.music-skip-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+.music-skip-btn:active {
+  transform: scale(0.9);
+}
+.header-skip-btn {
+  margin-left: auto;
+}
+.game-skip-btn {
+  width: 40px;
+  height: 40px;
+}
+.menu-track-name {
+  text-align: center;
+  margin: -4px 0;
+  font-size: 0.85rem;
 }
 .home {
   position: relative;
@@ -598,6 +648,134 @@ header.top h1 {
 }
 .rules li {
   margin-bottom: 12px;
+}
+
+.music-settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.music-track-name {
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.intro-settings-btn {
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------ intro video */
+
+.intro-video-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(243, 195, 79, 0.12) 0%, rgba(0, 0, 0, 0.35) 100%);
+  border: 1.5px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 14px rgba(243, 195, 79, 0.15);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+}
+.intro-video-card:hover {
+  background: linear-gradient(135deg, rgba(243, 195, 79, 0.22) 0%, rgba(0, 0, 0, 0.45) 100%);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 22px rgba(243, 195, 79, 0.3);
+  transform: translateY(-2px);
+}
+.intro-video-card:active {
+  transform: scale(0.98);
+}
+.intro-card-icon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+  color: #2b1703;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  padding-left: 3px;
+  box-shadow: 0 2px 10px rgba(243, 195, 79, 0.45);
+}
+.intro-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.intro-card-info b {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.05rem;
+  color: #ffffff;
+  letter-spacing: 0.02em;
+}
+.intro-card-info small {
+  color: var(--gold-soft);
+  font-size: 0.85rem;
+}
+
+.intro-overlay-btn {
+  margin-bottom: 14px;
+}
+
+.intro-modal-overlay {
+  z-index: 1001;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.intro-modal-sheet {
+  position: relative;
+  width: min(92vw, 680px);
+  max-height: 90vh;
+  background: #041910;
+  border: 1.5px solid var(--gold);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(243, 195, 79, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.intro-modal-title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+}
+.intro-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--glass-border);
+}
+.intro-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+.intro-modal-player {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: 12px;
+  background: #000000;
+  outline: none;
 }
 
 /* ------------------------------------------------------------ cards (2026 Mobile Look & Feel) */
@@ -1560,15 +1738,57 @@ body > .overlay {
 }
 
 .seo-fallback {
-  padding: 24px 16px;
-  color: var(--muted);
+  padding: 32px 20px;
+  color: #e5e7eb;
+  max-width: 840px;
+  margin: 0 auto;
+  line-height: 1.65;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 .seo-fallback h1 {
   color: var(--gold);
+  font-family: Cinzel, Georgia, serif;
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  margin-bottom: 16px;
+  line-height: 1.25;
+}
+.seo-fallback h2 {
+  color: #facc15;
+  font-family: Cinzel, Georgia, serif;
+  font-size: 1.35rem;
+  margin-top: 28px;
+  margin-bottom: 12px;
+}
+.seo-fallback p.lead {
+  font-size: 1.05rem;
+  color: #f3f4f6;
+  margin-bottom: 20px;
+}
+.seo-fallback p {
+  margin-bottom: 12px;
+  color: #d1d5db;
+}
+.seo-fallback ul,
+.seo-fallback ol {
+  padding-left: 24px;
+  margin-bottom: 18px;
+}
+.seo-fallback li {
+  margin-bottom: 8px;
+  color: #d1d5db;
+}
+.seo-fallback .seo-nav {
+  margin: 16px 0 24px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid var(--gold);
 }
 .seo-fallback a,
 .home .seo-links a {
   color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .home .seo-links {
   font-size: 0.85rem;
