@@ -1,7 +1,7 @@
 {
-  "name": "Scopa",
+  "name": "Scopa & Briscola",
   "short_name": "Scopa",
-  "description": "Play Scopa, the classic Italian card game, against the computer or a friend.",
+  "description": "Play Scopa and Briscola, the classic Italian card games, against the computer or a friend.",
   "lang": "en",
   "categories": ["games", "entertainment"],
   "start_url": "/",

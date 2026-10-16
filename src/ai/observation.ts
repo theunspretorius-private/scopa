@@ -1,11 +1,13 @@
-import { FULL_DECK, cardById, type Card } from '../engine/cards';
+import { FULL_DECK, cardById, type Card, type Suit } from '../engine/cards';
 import { other, type RoundState, type Seat } from '../engine/round';
+import type { GameType } from '../engine/rules';
 
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export const DIFFICULTIES: readonly Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
 
 /** Everything a player can legitimately know at their turn. Plain data, so it can cross a Worker boundary. */
 export interface AIObservation {
+  game?: GameType;
   seat: Seat;
   dealer: Seat;
   hand: string[];
@@ -17,12 +19,15 @@ export interface AIObservation {
   oppHandCount: number;
   deckCount: number;
   lastCapturer: Seat | null;
+  trumpCard?: string | null;
+  trumpSuit?: Suit | null;
 }
 
 export function observe(round: RoundState, seat: Seat): AIObservation {
   const me = round.players[seat];
   const opp = round.players[other(seat)];
   return {
+    game: round.game ?? 'scopa',
     seat,
     dealer: round.dealer,
     hand: me.hand.map((c) => c.id),
@@ -34,6 +39,8 @@ export function observe(round: RoundState, seat: Seat): AIObservation {
     oppHandCount: opp.hand.length,
     deckCount: round.deck.length,
     lastCapturer: round.lastCapturer,
+    trumpCard: round.trumpCard?.id ?? null,
+    trumpSuit: round.trumpSuit ?? round.trumpCard?.suit ?? null,
   };
 }
 
@@ -44,3 +51,4 @@ export function unseenCards(obs: AIObservation): Card[] {
   const seen = new Set([...obs.hand, ...obs.table, ...obs.myCaptured, ...obs.oppCaptured]);
   return FULL_DECK.filter((c) => !seen.has(c.id));
 }
+

@@ -1,13 +1,28 @@
-import type { Card } from './cards';
+import type { Card, Suit } from './cards';
 
-/** A move: play `cardId`; `capture` lists the table card ids taken (empty = trail). */
+export type GameType = 'scopa' | 'briscola';
+export const GAME_TYPES: readonly GameType[] = ['scopa', 'briscola'];
+
+/** A move: play `cardId`; `capture` lists the table card ids taken (empty = trail or Briscola play). */
 export interface Move {
   cardId: string;
   capture: string[];
 }
 
 /**
- * All legal ways `card` can capture from `table`.
+ * Returns true if the second card (`followCard`) beats the first card (`leadCard`) in Briscola.
+ * - Same suit: higher Briscola strength wins (Asso > 3 > Re > Cavallo > Fante > 7 > 6 > 5 > 4 > 2).
+ * - Different suit: `followCard` wins iff it is of `trumpSuit`.
+ */
+export function briscolaBeats(leadCard: Card, followCard: Card, trumpSuit: Suit): boolean {
+  if (followCard.suit === leadCard.suit) {
+    return followCard.briscolaStrength > leadCard.briscolaStrength;
+  }
+  return followCard.suit === trumpSuit;
+}
+
+/**
+ * All legal ways `card` can capture from `table` in Scopa.
  * Single-card priority: if any table card has the same rank, only single-card captures are legal.
  * Otherwise every combination of 2+ table cards whose ranks sum to the played rank.
  */
@@ -34,8 +49,11 @@ export function captureOptions(card: Card, table: readonly Card[]): Card[][] {
   return out;
 }
 
-/** Every legal move for a hand. A card that can capture must capture; it may never trail. */
-export function legalMoves(hand: readonly Card[], table: readonly Card[]): Move[] {
+/** Every legal move for a hand. In Scopa, a card that can capture must capture. In Briscola, any card may be played. */
+export function legalMoves(hand: readonly Card[], table: readonly Card[], game: GameType = 'scopa'): Move[] {
+  if (game === 'briscola') {
+    return hand.map((card) => ({ cardId: card.id, capture: [] }));
+  }
   const moves: Move[] = [];
   for (const card of hand) {
     const opts = captureOptions(card, table);
@@ -51,9 +69,10 @@ export function sameIdSet(a: readonly string[], b: readonly string[]): boolean {
   return b.every((x) => s.has(x)) && s.size === b.length;
 }
 
-export function isLegalMove(hand: readonly Card[], table: readonly Card[], move: Move): boolean {
+export function isLegalMove(hand: readonly Card[], table: readonly Card[], move: Move, game: GameType = 'scopa'): boolean {
   const card = hand.find((c) => c.id === move.cardId);
   if (!card) return false;
+  if (game === 'briscola') return move.capture.length === 0;
   const opts = captureOptions(card, table);
   if (opts.length === 0) return move.capture.length === 0;
   return opts.some((o) =>
@@ -63,3 +82,4 @@ export function isLegalMove(hand: readonly Card[], table: readonly Card[], move:
     ),
   );
 }
+

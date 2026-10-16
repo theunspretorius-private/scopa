@@ -2,7 +2,7 @@ import { observe, type Difficulty } from '../../ai/observation';
 import { newMatch, nextRound, playMove, type MatchState, type TargetScore } from '../../engine/match';
 import { mulberry32, randomSeed } from '../../engine/rng';
 import type { Seat } from '../../engine/round';
-import type { Move } from '../../engine/rules';
+import type { GameType, Move } from '../../engine/rules';
 import { buildView, toLastPlay, type EmoteId, type GameView, type LastPlay } from '../../net/protocol';
 import { requestAIMove } from '../aiClient';
 import { t } from '../i18n';
@@ -29,8 +29,9 @@ export class LocalController implements GameController {
     readonly difficulty: Difficulty,
     private readonly target: TargetScore,
     private readonly playerName: string,
+    readonly game: GameType = 'scopa',
   ) {
-    this.match = newMatch(target, this.rng);
+    this.match = newMatch(target, this.rng, undefined, game);
     queueMicrotask(() => this.publish());
   }
 
@@ -78,7 +79,15 @@ export class LocalController implements GameController {
     const { match, result } = playMove(this.match, move);
     this.match = match;
     this.lastPlay = toLastPlay(++this.seq, result);
-    if (result.scopa) {
+    if (this.game === 'briscola') {
+      if (result.trickPoints && result.trickPoints >= 11) {
+        if (result.trickWinner === AI && this.rng() < 0.35) {
+          setTimeout(() => this.emotes.emit(AI, 'nice'), 900);
+        } else if (result.trickWinner === HUMAN && result.trickPoints >= 20 && this.rng() < 0.45) {
+          setTimeout(() => this.emotes.emit(AI, 'mamma'), 900);
+        }
+      }
+    } else if (result.scopa) {
       const chance = result.seat === AI ? 0.45 : 0.3;
       if (this.rng() < chance) setTimeout(() => this.emotes.emit(AI, result.seat === AI ? 'scopa' : 'mamma'), 900);
     } else if (result.seat === HUMAN && result.captured.some((c) => c.id === 'DENARI_7') && this.rng() < 0.5) {
@@ -101,7 +110,7 @@ export class LocalController implements GameController {
 
   rematch() {
     if (this.match.status !== 'MATCH_OVER') return;
-    this.match = newMatch(this.target, this.rng);
+    this.match = newMatch(this.target, this.rng, undefined, this.game);
     this.lastPlay = null;
     this.publish();
   }
@@ -117,3 +126,4 @@ export class LocalController implements GameController {
     this.emotes.clear();
   }
 }
+

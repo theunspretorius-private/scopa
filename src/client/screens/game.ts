@@ -1,4 +1,4 @@
-import { cardById } from '../../engine/cards';
+import { cardById, sumBriscolaPoints, type Suit } from '../../engine/cards';
 import type { Seat } from '../../engine/round';
 import { captureOptions, type Move } from '../../engine/rules';
 import { primiera } from '../../engine/scoring';
@@ -33,6 +33,8 @@ interface Frame {
   scope: [number, number];
   scopaCards: [string[], string[]];
   deck: number;
+  trumpCard: string | null;
+  trumpSuit: Suit | null;
   turn: Seat;
 }
 
@@ -44,6 +46,8 @@ const frameOf = (v: GameView): Frame => ({
   scope: v.scope,
   scopaCards: v.scopaCards,
   deck: v.deckCount,
+  trumpCard: v.trumpCard,
+  trumpSuit: v.trumpSuit,
   turn: v.turn,
 });
 
@@ -136,29 +140,47 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
   function renderBars(v: GameView, f: Frame) {
     const me = v.you;
     const op = other(me);
+    const isBriscola = v.game === 'briscola';
     oppName.textContent = v.names[op] + (v.afk[op] ? ` · ${t('afk')}` : '') + (v.connected[op] ? '' : ' ⚠︎');
     meName.textContent = v.names[me] || t('you');
     oppScore.textContent = `${v.scores[op]}`;
     meScore.textContent = `${v.scores[me]} / ${v.target}`;
-    oppScore.title = meScore.title = t('targetScore');
+    oppScore.title = meScore.title = isBriscola ? t('matchFormat') : t('targetScore');
 
     const backs: HTMLElement[] = [];
     for (let i = 0; i < f.oppHand; i++) backs.push(backEl(i >= prevOppCount ? 'mini deal-in' : 'mini'));
     oppHand.replaceChildren(...backs);
     prevOppCount = f.oppHand;
 
-    renderPile(oppPile, f.captured[op], f.scopaCards[op]);
-    renderPile(mePile, f.captured[me], f.scopaCards[me]);
+    const myPts = isBriscola && v.inspector && v.myCaptured ? sumBriscolaPoints(v.myCaptured.map(cardById)) : null;
+    renderPile(oppPile, f.captured[op], f.scopaCards[op], null);
+    renderPile(mePile, f.captured[me], f.scopaCards[me], myPts);
     mePile.disabled = !v.inspector;
 
-    deckEl.replaceChildren(f.deck > 0 ? backEl('stack') : h('div', { class: 'card ghost' }), h('span', { class: 'count' }, String(f.deck)));
-    deckEl.title = t('deck');
+    deckEl.classList.toggle('briscola-deck', isBriscola);
+    if (isBriscola) {
+      const suitLabel = f.trumpSuit ? t(`suit_${f.trumpSuit}` as 'suit_DENARI') : '';
+      const deckWrap = h('div', { class: 'deck-briscola-wrap' });
+      if (f.deck > 0) {
+        if (f.trumpCard) deckWrap.append(cardEl(f.trumpCard, 'trump-under', false));
+        if (f.deck > 1) deckWrap.append(backEl('stack'));
+      } else {
+        deckWrap.append(h('div', { class: 'card ghost' }));
+      }
+      const deckChildren: HTMLElement[] = [deckWrap, h('span', { class: 'count' }, String(f.deck))];
+      if (suitLabel) deckChildren.push(h('span', { class: 'trump-pill', title: `${t('trump')}: ${suitLabel}` }, `✦ ${suitLabel}`));
+      deckEl.replaceChildren(...deckChildren);
+      deckEl.title = suitLabel ? `${t('trump')}: ${suitLabel}` : t('deck');
+    } else {
+      deckEl.replaceChildren(f.deck > 0 ? backEl('stack') : h('div', { class: 'card ghost' }), h('span', { class: 'count' }, String(f.deck)));
+      deckEl.title = t('deck');
+    }
 
     oppBar.classList.toggle('active', v.status === 'IN_PROGRESS' && f.turn === op);
     meBar.classList.toggle('active', v.status === 'IN_PROGRESS' && f.turn === me);
   }
 
-  function renderPile(el: HTMLElement, count: number, scopaCards: string[]) {
+  function renderPile(el: HTMLElement, count: number, scopaCards: string[], briscolaPts: number | null) {
     const kids: HTMLElement[] = [];
     kids.push(count > 0 ? backEl('mini pile-back') : h('div', { class: 'card mini ghost' }));
     scopaCards.slice(-3).forEach((id, i) => {
@@ -168,11 +190,13 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     });
     kids.push(h('span', { class: 'count' }, `${count}`));
     if (scopaCards.length) kids.push(h('span', { class: 'scopa-count', title: t('scope') }, `✦ ${scopaCards.length}`));
+    else if (briscolaPts !== null) kids.push(h('span', { class: 'scopa-count', title: t('puntiMano') }, `${briscolaPts} ${t('points')}`));
     el.replaceChildren(...kids);
-    el.setAttribute('aria-label', `${t('pile')}: ${count} ${t('cards')}, ${t('scope')}: ${scopaCards.length}`);
+    el.setAttribute('aria-label', `${t('pile')}: ${count} ${t('cards')}`);
   }
 
   function renderTable(ids: string[], opts: { taken?: Set<string>; incoming?: string; from?: 'me' | 'opp' } = {}) {
+    const isBriscola = shown?.game === 'briscola';
     const glow = new Set<string>();
     const chosen = new Set(sel?.chosen ?? []);
     if (sel) for (const o of remainingOptions(sel)) o.forEach((id) => glow.add(id));
@@ -182,7 +206,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       if (opts.incoming === id) cls.push('incoming', `from-${opts.from}`);
       else if (!prevTableIds.has(id) && !opts.incoming) cls.push('deal-in');
       if (sel) cls.push(chosen.has(id) ? 'chosen' : glow.has(id) ? 'glow' : 'dim');
-      const el = cardEl(id, cls.join(' '));
+      const el = cardEl(id, cls.join(' '), !isBriscola);
       el.style.setProperty('--d', `${i * 70}ms`);
       el.setAttribute('role', 'listitem');
       el.addEventListener('click', () => onTableTap(id));
@@ -194,6 +218,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
   }
 
   function renderHand(ids: string[], v: GameView) {
+    const isBriscola = v.game === 'briscola';
     const n = ids.length;
     const mine = canAct(v);
     const cards = ids.map((id, i) => {
@@ -202,7 +227,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       if (!prevHandIds.has(id)) cls.push('deal-in');
       if (sel?.cardId === id) cls.push('selected');
       if (mine) cls.push('playable');
-      const el = cardEl(id, cls.join(' '));
+      const el = cardEl(id, cls.join(' '), !isBriscola);
       el.style.setProperty('--rot', `${off * 7}deg`);
       el.style.setProperty('--lift', `${Math.abs(off) * 8}px`);
       el.style.setProperty('--d', `${i * 90}ms`);
@@ -275,6 +300,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       return;
     }
 
+    const isBriscola = v.game === 'briscola';
     const mine = lp.seat === v.you;
     const from = mine ? 'me' : 'opp';
     const before = frame;
@@ -294,13 +320,19 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     renderTable(stage.table, { taken: new Set(lp.captured), incoming: lp.card, from });
     sfx.slide();
     haptic('light');
-    await sleep(lp.captured.length ? 620 : 380);
+    await sleep(lp.captured.length ? (isBriscola ? 700 : 620) : 380);
 
-    // 2. Capture: everything slides into the capturer's pile.
+    // 2. Capture / Trick resolution: everything slides into the capturer's pile.
     let after = tableWithCard;
     if (lp.captured.length) {
-      if ([lp.card, ...lp.captured].includes(SETTEBELLO)) await celebrateSettebello(mine, v.names[lp.seat]);
-      const sweepCls = mine ? 'sweep-me' : 'sweep-opp';
+      const winnerSeat = lp.trickWinner !== undefined && lp.trickWinner !== null ? lp.trickWinner : lp.seat;
+      const wonByMe = winnerSeat === v.you;
+      if (!isBriscola && [lp.card, ...lp.captured].includes(SETTEBELLO)) {
+        await celebrateSettebello(wonByMe, v.names[winnerSeat]);
+      } else if (isBriscola && lp.trickPoints && lp.trickPoints >= 10) {
+        showBanner(`+${lp.trickPoints} ${t('points')}`, 'info', 1150);
+      }
+      const sweepCls = wonByMe ? 'sweep-me' : 'sweep-opp';
       for (const id of [lp.card, ...lp.captured]) tableEl.querySelector(`[data-id="${id}"]`)?.classList.add(sweepCls);
       sfx.snap();
       haptic('medium');
@@ -316,12 +348,12 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       after = tableWithCard.filter((id) => !taken.has(id));
     }
 
-    // 3. End of round: leftovers go to the last capturer.
+    // 3. End of round: leftovers go to the last capturer (Scopa).
     if (lp.leftover.length && lp.leftoverTo !== null) {
       renderTable(after, { taken: new Set(lp.leftover) });
       showBanner(t('lastTake'), 'info', 1300);
       await sleep(700);
-      if (lp.leftover.includes(SETTEBELLO)) {
+      if (!isBriscola && lp.leftover.includes(SETTEBELLO)) {
         await celebrateSettebello(lp.leftoverTo === v.you, v.names[lp.leftoverTo]);
       }
       const cls = lp.leftoverTo === v.you ? 'sweep-me' : 'sweep-opp';
@@ -411,6 +443,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
 
   function onHandTap(id: string) {
     if (!canAct()) return;
+    if (shown!.game === 'briscola') return commit({ cardId: id, capture: [] });
     if (sel?.cardId === id) return cancelSelection();
     const opts = captureOptions(cardById(id), shown!.table.map(cardById)).map((o) => o.map((c) => c.id));
     if (opts.length === 0) return commit({ cardId: id, capture: [] });
@@ -560,12 +593,13 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       mBtn.replaceChildren(icon(settings.music ? 'volumeOn' : 'volumeOff'), h('span', null, t('music')));
       trackLabel.replaceChildren(icon('music'), h('span', null, currentTrack().title));
     });
+    const gameTitle = shown?.game === 'briscola' ? 'Briscola' : 'Scopa';
     openOverlay(
       'menu',
       h(
         'div',
         { class: 'sheet' },
-        h('h2', null, 'Scopa'),
+        h('h2', null, gameTitle),
         h('button', { class: 'btn primary', onclick: () => closeOverlay() }, t('continue')),
         h('button', { class: 'btn ghost', onclick: () => nav.rules() }, icon('book'), h('span', null, t('howToPlay'))),
         h('div', { class: 'row' }, mBtn, sBtn),
@@ -579,9 +613,35 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     const v = shown;
     if (!v?.inspector || !v.myCaptured) return;
     const cards = v.myCaptured.map(cardById);
+    const row = (k: string, val: string) => h('div', { class: 'stat-row' }, h('span', null, k), h('b', null, val));
+    if (v.game === 'briscola') {
+      const pts = sumBriscolaPoints(cards);
+      const assi = cards.filter((c) => c.rank === 1).length;
+      const tre = cards.filter((c) => c.rank === 3).length;
+      const trumps = v.trumpSuit ? cards.filter((c) => c.suit === v.trumpSuit).length : 0;
+      const highCards = cards
+        .filter((c) => c.briscolaValue > 0)
+        .sort((a, b) => b.briscolaValue - a.briscolaValue)
+        .slice(0, 6);
+      openOverlay(
+        'inspector',
+        h(
+          'div',
+          { class: 'sheet drawer' },
+          h('h2', null, t('myPile')),
+          row(t('puntiMano'), `${pts} / 120`),
+          row(t('carte'), `${cards.length}`),
+          row(t('assi'), `${assi}`),
+          row(t('tre'), `${tre}`),
+          v.trumpSuit ? row(`${t('trump')} (${t(`suit_${v.trumpSuit}` as 'suit_DENARI')})`, `${trumps}`) : null,
+          highCards.length ? h('div', { class: 'mini-row' }, ...highCards.map((c) => cardEl(c.id, 'thumb', false))) : null,
+          h('button', { class: 'btn', onclick: () => closeOverlay() }, t('continue')),
+        ),
+      );
+      return;
+    }
     const p = primiera(cards);
     const coins = cards.filter((c) => c.suit === 'DENARI').length;
-    const row = (k: string, val: string) => h('div', { class: 'stat-row' }, h('span', null, k), h('b', null, val));
     openOverlay(
       'inspector',
       h(
@@ -634,6 +694,53 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     const b = v.breakdown!;
     const me = v.you === 0 ? b.player1 : b.player2;
     const op = v.you === 0 ? b.player2 : b.player1;
+    const pt = (n: number) => h('td', { class: n ? 'pt win' : 'pt' }, n ? `+${n}` : '');
+
+    if (v.game === 'briscola') {
+      const meAssi = me.assiCount ?? 0;
+      const opAssi = op.assiCount ?? 0;
+      const meTre = me.treCount ?? 0;
+      const opTre = op.treCount ?? 0;
+      const meFig = me.figurePoints ?? 0;
+      const opFig = op.figurePoints ?? 0;
+      const mePts = me.briscolaPoints ?? 0;
+      const opPts = op.briscolaPoints ?? 0;
+      const rows: [string, string, number, string, number][] = [
+        [t('assi'), `${meAssi}`, meAssi * 11, `${opAssi}`, opAssi * 11],
+        [t('tre'), `${meTre}`, meTre * 10, `${opTre}`, opTre * 10],
+        [t('figure'), `${meFig} ${t('points')}`, meFig, `${opFig} ${t('points')}`, opFig],
+        [t('carte'), `${me.carteCount}`, 0, `${op.carteCount}`, 0],
+      ];
+      return h(
+        'table',
+        { class: 'score-table' },
+        h('thead', null, h('tr', null, h('th'), h('th', { colspan: 2 }, v.names[v.you] || t('you')), h('th', { colspan: 2 }, v.names[other(v.you)]))),
+        h(
+          'tbody',
+          null,
+          ...rows.map((r, i) =>
+            h('tr', { style: `--i:${i}` }, h('th', null, r[0]), h('td', null, r[1]), pt(r[2]), h('td', null, r[3]), pt(r[4])),
+          ),
+          h(
+            'tr',
+            { class: 'sum', style: `--i:${rows.length}` },
+            h('th', null, t('puntiMano')),
+            h('td', { colspan: 2 }, h('b', null, `${mePts}`), me.pointsEarnedThisRound ? ' ★' : ''),
+            h('td', { colspan: 2 }, h('b', null, `${opPts}`), op.pointsEarnedThisRound ? ' ★' : ''),
+          ),
+          v.target > 1
+            ? h(
+                'tr',
+                { class: 'sum', style: `--i:${rows.length + 1}` },
+                h('th', null, t('handsWon')),
+                h('td', { colspan: 2 }, h('b', null, `${me.newTotalScore}`), ` / ${v.target}`),
+                h('td', { colspan: 2 }, h('b', null, `${op.newTotalScore}`), ` / ${v.target}`),
+              )
+            : null,
+        ),
+      );
+    }
+
     const rows: [string, string, number, string, number][] = [
       [t('carte'), `${me.carteCount}`, me.points.carte, `${op.carteCount}`, op.points.carte],
       [t('denari'), `${me.denariCount}`, me.points.denari, `${op.denariCount}`, op.points.denari],
@@ -641,7 +748,6 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       [t('primiera'), `${me.primieraScore}`, me.points.primiera, `${op.primieraScore}`, op.points.primiera],
       [t('scope'), `${me.scope}`, me.points.scope, `${op.scope}`, op.points.scope],
     ];
-    const pt = (n: number) => h('td', { class: n ? 'pt win' : 'pt' }, n ? `+${n}` : '');
     return h(
       'table',
       { class: 'score-table' },
@@ -665,12 +771,14 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
 
   function openRoundEnd(v: GameView) {
     const voted = v.continueVotes[v.you];
+    const isBriscolaDraw =
+      v.game === 'briscola' && v.breakdown && v.breakdown.player1.briscolaPoints === 60 && v.breakdown.player2.briscolaPoints === 60;
     const content = h(
       'div',
       { class: 'sheet scoreboard' },
-      h('h2', null, t('roundOver', { n: v.roundNumber })),
+      h('h2', null, isBriscolaDraw ? t('drawRound') : t('roundOver', { n: v.roundNumber })),
       breakdownTable(v),
-      h('p', { class: 'muted' }, `${t('targetScore')}: ${v.target}`),
+      h('p', { class: 'muted' }, `${v.game === 'briscola' ? t('handsWon') : t('targetScore')}: ${v.target}`),
       voted
         ? h('p', { class: 'muted' }, t('waitingOpp'))
         : h(
@@ -704,12 +812,22 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     if (v.forfeitBy !== null) headline = v.forfeitBy === v.you ? t('forfeitLose') : t('forfeitWin', { name: opName });
     const iVoted = v.rematchVotes[v.you];
     const theyVoted = v.rematchVotes[other(v.you)];
+
+    let myDisplayScore = v.scores[v.you];
+    let oppDisplayScore = v.scores[other(v.you)];
+    if (v.game === 'briscola' && v.target === 1 && v.breakdown && v.forfeitBy === null) {
+      const meB = v.you === 0 ? v.breakdown.player1 : v.breakdown.player2;
+      const opB = v.you === 0 ? v.breakdown.player2 : v.breakdown.player1;
+      myDisplayScore = meB.briscolaPoints ?? myDisplayScore;
+      oppDisplayScore = opB.briscolaPoints ?? oppDisplayScore;
+    }
+
     const content = h(
       'div',
       { class: `sheet scoreboard ${won ? 'won' : 'lost'}` },
       h('div', { class: 'trophy' }, won ? '🏆' : '🃏'),
       h('h2', null, headline),
-      h('p', { class: 'final' }, h('b', null, `${v.scores[v.you]}`), ' – ', h('b', null, `${v.scores[other(v.you)]}`)),
+      h('p', { class: 'final' }, h('b', null, `${myDisplayScore}`), ' – ', h('b', null, `${oppDisplayScore}`)),
       v.breakdown && v.forfeitBy === null ? breakdownTable(v) : null,
       theyVoted && !iVoted ? h('p', { class: 'muted' }, t('oppWantsRematch', { name: opName })) : null,
       iVoted

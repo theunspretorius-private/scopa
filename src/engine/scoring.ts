@@ -1,4 +1,4 @@
-import { SUITS, isSettebello, type Card, type Suit } from './cards';
+import { SUITS, isSettebello, sumBriscolaPoints, type Card, type Suit } from './cards';
 import type { PlayerRound, Seat } from './round';
 
 export interface PrimieraResult {
@@ -46,6 +46,12 @@ export interface PlayerBreakdown {
   points: PointBreakdown;
   pointsEarnedThisRound: number;
   newTotalScore: number;
+  /** Briscola card points (out of 120) and category counts. */
+  briscolaPoints?: number;
+  assiCount?: number;
+  treCount?: number;
+  figurePoints?: number;
+  briscolaCount?: number;
 }
 
 export interface RoundBreakdown {
@@ -56,7 +62,7 @@ export interface RoundBreakdown {
 
 const majority = (a: number, b: number): [number, number] => (a > b ? [1, 0] : b > a ? [0, 1] : [0, 0]);
 
-/** Round points per seat, without totals. Used by the AI evaluation. */
+/** Round points per seat, without totals. Used by the Scopa AI evaluation. */
 export function roundPoints(players: readonly [PlayerRound, PlayerRound]): [number, number] {
   const [a, b] = players;
   const [ca, cb] = majority(a.captured.length, b.captured.length);
@@ -65,6 +71,11 @@ export function roundPoints(players: readonly [PlayerRound, PlayerRound]): [numb
   const sb = b.captured.some(isSettebello) ? 1 : 0;
   const pw = primieraWinner(primiera(a.captured), primiera(b.captured));
   return [ca + da + sa + (pw === 0 ? 1 : 0) + a.scope, cb + db + sb + (pw === 1 ? 1 : 0) + b.scope];
+}
+
+/** Card points (0..120) per seat in Briscola. */
+export function briscolaRoundPoints(players: readonly [PlayerRound, PlayerRound]): [number, number] {
+  return [sumBriscolaPoints(players[0].captured), sumBriscolaPoints(players[1].captured)];
 }
 
 export const countDenari = (cards: readonly Card[]): number => cards.filter((c) => c.suit === 'DENARI').length;
@@ -110,3 +121,46 @@ export function scoreRound(
     player2: build(b, pb, cb, db, 1, previousTotals[1]),
   };
 }
+
+export function scoreBriscolaRound(
+  players: readonly [PlayerRound, PlayerRound],
+  previousTotals: readonly [number, number],
+  roundNumber: number,
+  trumpSuit?: Suit | null,
+): RoundBreakdown {
+  const [a, b] = players;
+  const ptsA = sumBriscolaPoints(a.captured);
+  const ptsB = sumBriscolaPoints(b.captured);
+  const [winA, winB] = majority(ptsA, ptsB);
+
+  const build = (p: PlayerRound, bPts: number, earned: number, prev: number): PlayerBreakdown => {
+    const assiCount = p.captured.filter((c) => c.rank === 1).length;
+    const treCount = p.captured.filter((c) => c.rank === 3).length;
+    const figurePoints = p.captured.filter((c) => c.rank >= 8).reduce((s, c) => s + c.briscolaValue, 0);
+    const briscolaCount = trumpSuit ? p.captured.filter((c) => c.suit === trumpSuit).length : 0;
+    return {
+      carteCount: p.captured.length,
+      denariCount: countDenari(p.captured),
+      hasSettebello: p.captured.some(isSettebello),
+      primieraScore: 0,
+      primieraCards: [],
+      primieraSuits: 0,
+      scope: 0,
+      points: { carte: earned, denari: 0, settebello: 0, primiera: 0, scope: 0 },
+      pointsEarnedThisRound: earned,
+      newTotalScore: prev + earned,
+      briscolaPoints: bPts,
+      assiCount,
+      treCount,
+      figurePoints,
+      briscolaCount,
+    };
+  };
+
+  return {
+    roundNumber,
+    player1: build(a, ptsA, winA, previousTotals[0]),
+    player2: build(b, ptsB, winB, previousTotals[1]),
+  };
+}
+

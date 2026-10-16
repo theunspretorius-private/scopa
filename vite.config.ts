@@ -9,7 +9,9 @@ const SERVER = process.env.SCOPA_SERVER ?? 'http://localhost:8787';
 const PAGES = [
   { path: '/', priority: '1.0' },
   { path: '/how-to-play-scopa/', priority: '0.9' },
+  { path: '/how-to-play-briscola/', priority: '0.9' },
   { path: '/it/regole-scopa/', priority: '0.9' },
+  { path: '/it/regole-briscola/', priority: '0.9' },
 ];
 
 /**
@@ -64,7 +66,9 @@ export default defineConfig(({ mode }) => {
         input: {
           main: resolve(__dirname, 'index.html'),
           rules: resolve(__dirname, 'how-to-play-scopa/index.html'),
+          briscolaRules: resolve(__dirname, 'how-to-play-briscola/index.html'),
           regole: resolve(__dirname, 'it/regole-scopa/index.html'),
+          regoleBriscola: resolve(__dirname, 'it/regole-briscola/index.html'),
         },
       },
     },

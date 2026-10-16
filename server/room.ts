@@ -140,7 +140,7 @@ export class Room {
   }
 
   private startMatch(): void {
-    this.match = newMatch(this.config.target, this.rng);
+    this.match = newMatch(this.config.target, this.rng, undefined, this.config.game ?? 'scopa');
     this.seq++;
     this.lastPlay = null;
     this.forfeitBy = null;
@@ -176,7 +176,7 @@ export class Room {
     s.afk = true;
     if (s.timeouts >= MAX_TIMEOUTS) return this.doForfeit(seat);
     const r = m.round;
-    this.advance(pick(legalMoves(r.players[seat].hand, r.table), this.rng), true);
+    this.advance(pick(legalMoves(r.players[seat].hand, r.table, m.game), this.rng), true);
   }
 
   play(seat: Seat, move: Move): ServerMsg | null {

@@ -1,5 +1,12 @@
 import { DIFFICULTIES, type Difficulty } from '../ai/observation';
-import { TARGET_SCORES, type TargetScore } from '../engine/match';
+import {
+  BRISCOLA_TARGET_SCORES,
+  TARGET_SCORES,
+  type BriscolaTargetScore,
+  type ScopaTargetScore,
+  type TargetScore,
+} from '../engine/match';
+import type { GameType } from '../engine/rules';
 import { ROOM_ID_RE, type CreateRoomResponse, type RoomConfig, type TurnSeconds } from '../net/protocol';
 import qrcode from 'qrcode-generator';
 import { currentTrack, sfx, skipTrack, startMusic, toggleMusic, unlockAudio } from './audio';
@@ -36,6 +43,23 @@ function setPath(path: string) {
   if (location.pathname !== path) history.replaceState(null, '', path);
 }
 
+function gameLabel(game: GameType): string {
+  return game === 'briscola' ? 'Briscola' : 'Scopa';
+}
+
+function formatBriscolaTarget(v: BriscolaTargetScore): string {
+  if (v === 1) return t('singleGame');
+  if (v === 2) return t('bestOf3');
+  return t('bestOf5');
+}
+
+function formatConfigTarget(game: GameType, target: TargetScore): string {
+  if (game === 'briscola') {
+    return `${t('matchFormat')}: ${formatBriscolaTarget(target as BriscolaTargetScore)}`;
+  }
+  return `${t('targetScore')}: ${target}`;
+}
+
 const header = (title: string, back: () => void = home) =>
   h(
     'header',
@@ -64,11 +88,13 @@ export function home() {
   endGame();
   setPath('/');
   mount(() => {
+    const isBriscola = settings.game === 'briscola';
+    const fanCards = isBriscola ? ['DENARI_1', 'SPADE_3', 'COPPE_10'] : ['COPPE_10', 'DENARI_7', 'SPADE_1'];
     const fan = h(
       'div',
       { class: 'hero-fan' },
       h('div', { class: 'hero-glow', 'aria-hidden': 'true' }),
-      ...['COPPE_10', 'DENARI_7', 'SPADE_1'].map((id, i) => cardEl(id, `hero h${i}`)),
+      ...fanCards.map((id, i) => cardEl(id, `hero h${i}`, !isBriscola)),
     );
     const renderMuteIcon = () => icon(settings.music ? 'volumeOn' : 'volumeOff');
     const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music'), title: t('music') }, renderMuteIcon());
@@ -89,6 +115,28 @@ export function home() {
     });
     const musicControls = h('div', { class: 'music-controls' }, muteBtn, skipBtn);
 
+    const gameSwitcher = h(
+      'div',
+      { class: 'game-switcher', role: 'group', 'aria-label': t('gameMode') },
+      ...(['scopa', 'briscola'] as GameType[]).map((g) =>
+        h(
+          'button',
+          {
+            type: 'button',
+            class: `game-switch-btn ${settings.game === g ? 'on' : ''}`,
+            'aria-pressed': String(settings.game === g),
+            onclick: () => {
+              if (settings.game === g) return;
+              sfx.tick();
+              updateSettings({ game: g });
+              home();
+            },
+          },
+          gameLabel(g),
+        ),
+      ),
+    );
+
     const totalGames = stats.wins + stats.losses;
     const winRate = totalGames > 0 ? `${Math.round((stats.wins / totalGames) * 100)}%` : '—';
 
@@ -100,8 +148,9 @@ export function home() {
         'div',
         { class: 'logo' },
         h('span', { class: 'logo-badge' }, '✦ GIOCO DELLE CARTE ✦'),
-        h('h1', null, 'Scopa'),
-        h('p', null, t('tagline')),
+        gameSwitcher,
+        h('h1', null, gameLabel(settings.game)),
+        h('p', null, isBriscola ? t('briscolaTagline') : t('tagline')),
       ),
       fan,
       h(
@@ -140,7 +189,11 @@ export function home() {
         { class: 'seo-links' },
         h('a', { href: '/how-to-play-scopa/' }, 'Scopa rules'),
         ' · ',
-        h('a', { href: '/it/regole-scopa/', hreflang: 'it' }, 'Regole della Scopa'),
+        h('a', { href: '/how-to-play-briscola/' }, 'Briscola rules'),
+        ' · ',
+        h('a', { href: '/it/regole-scopa/', hreflang: 'it' }, 'Regole Scopa'),
+        ' · ',
+        h('a', { href: '/it/regole-briscola/', hreflang: 'it' }, 'Regole Briscola'),
         ' · ',
         h('a', { href: 'https://afrispeel.co.za/scopa', target: '_blank', rel: 'noopener', hreflang: 'af' }, 'Afrispeel'),
       ),
@@ -151,8 +204,11 @@ export function home() {
 // ------------------------------------------------------------------ vs PC
 
 function localSetup() {
+  const game = settings.game;
+  const isBriscola = game === 'briscola';
   let diff: Difficulty = settings.lastDifficulty;
-  let target: TargetScore = settings.lastTarget;
+  let scopaTarget: ScopaTargetScore = settings.lastTarget;
+  let briscolaTarget: BriscolaTargetScore = settings.lastBriscolaTarget;
   mount(() => {
     const cards = h('div', { class: 'choice-list' });
     const renderCards = () =>
@@ -169,7 +225,12 @@ function localSetup() {
               },
             },
             h('span', { class: 'dot' }),
-            h('span', { class: 'choice-body' }, h('b', null, t(d)), h('small', null, t(`${d}_desc` as 'EASY_desc'))),
+            h(
+              'span',
+              { class: 'choice-body' },
+              h('b', null, t(d)),
+              h('small', null, t((isBriscola ? `${d}_briscola_desc` : `${d}_desc`) as 'EASY_desc')),
+            ),
             h('span', { class: 'choice-check' }, icon('check')),
           ),
         ),
@@ -178,7 +239,7 @@ function localSetup() {
     return h(
       'div',
       { class: 'screen form' },
-      header(t('playPc')),
+      header(`${t('playPc')} · ${gameLabel(game)}`),
       h(
         'div',
         { class: 'glass-panel' },
@@ -188,20 +249,31 @@ function localSetup() {
       h(
         'div',
         { class: 'glass-panel' },
-        h('h3', null, t('targetScore')),
-        segmented(
-          TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ''}` })),
-          target,
-          (v) => (target = v),
-        ),
+        h('h3', null, isBriscola ? t('matchFormat') : t('targetScore')),
+        isBriscola
+          ? segmented<BriscolaTargetScore>(
+              BRISCOLA_TARGET_SCORES.map((v) => ({ value: v, label: formatBriscolaTarget(v) })),
+              briscolaTarget,
+              (v) => (briscolaTarget = v),
+            )
+          : segmented<ScopaTargetScore>(
+              TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ''}` })),
+              scopaTarget,
+              (v) => (scopaTarget = v),
+            ),
       ),
       h(
         'button',
         {
           class: 'btn primary big',
           onclick: () => {
-            updateSettings({ lastDifficulty: diff, lastTarget: target });
-            startLocal(diff, target);
+            if (isBriscola) {
+              updateSettings({ lastDifficulty: diff, lastBriscolaTarget: briscolaTarget });
+              startLocal(diff, briscolaTarget, game);
+            } else {
+              updateSettings({ lastDifficulty: diff, lastTarget: scopaTarget });
+              startLocal(diff, scopaTarget, game);
+            }
           },
         },
         t('start'),
@@ -210,11 +282,11 @@ function localSetup() {
   });
 }
 
-function startLocal(diff: Difficulty, target: TargetScore) {
+function startLocal(diff: Difficulty, target: TargetScore, game: GameType = settings.game) {
   endGame();
-  const ctrl = new LocalController(diff, target, settings.name);
+  const ctrl = new LocalController(diff, target, settings.name, game);
   controller = ctrl;
-  const nav = { home, rules: () => rulesOverlay() };
+  const nav = { home, rules: () => rulesOverlay(game) };
   mount(
     () => undefined,
     gameScreen(root, ctrl, nav),
@@ -224,7 +296,10 @@ function startLocal(diff: Difficulty, target: TargetScore) {
 // ------------------------------------------------------------------ friend (link) play
 
 function friendSetup() {
-  let target: TargetScore = settings.lastTarget;
+  const game = settings.game;
+  const isBriscola = game === 'briscola';
+  let scopaTarget: ScopaTargetScore = settings.lastTarget;
+  let briscolaTarget: BriscolaTargetScore = settings.lastBriscolaTarget;
   let turnSeconds: TurnSeconds = settings.lastTurnSeconds;
   let inspector = settings.lastInspector;
   mount(() => {
@@ -232,12 +307,18 @@ function friendSetup() {
     const btn = h('button', { class: 'btn primary big' }, icon('link'), h('span', null, t('createLink')));
     btn.addEventListener('click', async () => {
       btn.disabled = true;
-      updateSettings({ name: name.value.trim(), lastTarget: target, lastTurnSeconds: turnSeconds, lastInspector: inspector });
+      const target: TargetScore = isBriscola ? briscolaTarget : scopaTarget;
+      updateSettings({
+        name: name.value.trim(),
+        ...(isBriscola ? { lastBriscolaTarget: briscolaTarget } : { lastTarget: scopaTarget }),
+        lastTurnSeconds: turnSeconds,
+        lastInspector: inspector,
+      });
       try {
         const res = await fetch(`${serverOrigin()}/api/rooms`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ target, turnSeconds, inspector, name: settings.name }),
+          body: JSON.stringify({ game, target, turnSeconds, inspector, name: settings.name }),
         });
         if (!res.ok) throw new Error(String(res.status));
         const data = (await res.json()) as CreateRoomResponse;
@@ -251,17 +332,23 @@ function friendSetup() {
     return h(
       'div',
       { class: 'screen form' },
-      header(t('playFriend')),
+      header(`${t('playFriend')} · ${gameLabel(game)}`),
       h(
         'div',
         { class: 'glass-panel' },
         h('label', { class: 'field' }, h('span', null, t('name')), name),
-        h('h3', null, t('targetScore')),
-        segmented(
-          TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ` · ${t('long')}`}` })),
-          target,
-          (v) => (target = v),
-        ),
+        h('h3', null, isBriscola ? t('matchFormat') : t('targetScore')),
+        isBriscola
+          ? segmented<BriscolaTargetScore>(
+              BRISCOLA_TARGET_SCORES.map((v) => ({ value: v, label: formatBriscolaTarget(v) })),
+              briscolaTarget,
+              (v) => (briscolaTarget = v),
+            )
+          : segmented<ScopaTargetScore>(
+              TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ` · ${t('long')}`}` })),
+              scopaTarget,
+              (v) => (scopaTarget = v),
+            ),
         h('h3', null, t('turnTimer')),
         segmented<TurnSeconds>(
           [
@@ -284,6 +371,8 @@ function inviteUrl(room: string) {
 }
 
 function waitingScreen(room: string, config: RoomConfig) {
+  const game: GameType = config.game ?? 'scopa';
+  const isBriscola = game === 'briscola';
   const url = inviteUrl(room);
   const qr = qrcode(0, 'M');
   qr.addData(url);
@@ -293,13 +382,17 @@ function waitingScreen(room: string, config: RoomConfig) {
     if (await copyText(url)) toast(t('copied'));
   });
   const share = async () => {
-    const shared = await shareLink(url, 'Scopa', `${t('joinTitle')} — ${config.target} ${t('points')}`);
+    const shareTitle = gameLabel(game);
+    const shareDesc = isBriscola
+      ? `${t('joinTitleBriscola')} — ${formatBriscolaTarget(config.target as BriscolaTargetScore)}`
+      : `${t('joinTitle')} — ${config.target} ${t('points')}`;
+    const shared = await shareLink(url, shareTitle, shareDesc);
     if (!shared && (await copyText(url))) toast(t('copied'));
   };
   return h(
     'div',
     { class: 'screen form invite' },
-    header(t('inviteTitle')),
+    header(`${t('inviteTitle')} · ${gameLabel(game)}`),
     h(
       'div',
       { class: 'glass-panel invite-panel' },
@@ -312,7 +405,11 @@ function waitingScreen(room: string, config: RoomConfig) {
         copyBtn,
       ),
       h('div', { class: 'qr', html: qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }) }),
-      h('p', { class: 'muted config-pill' }, `${t('targetScore')}: ${config.target} · ${t('turnTimer')}: ${config.turnSeconds ? `${config.turnSeconds}s` : t('none')}`),
+      h(
+        'p',
+        { class: 'muted config-pill' },
+        `${gameLabel(game)} · ${formatConfigTarget(game, config.target)} · ${t('turnTimer')}: ${config.turnSeconds ? `${config.turnSeconds}s` : t('none')}`,
+      ),
       h('div', { class: 'waiting' }, h('span', { class: 'spinner' }), h('span', null, t('waitingFor'))),
     ),
   );
@@ -344,7 +441,7 @@ function startOnline(room: string, isHost: boolean) {
     if (inGame) return;
     inGame = true;
     off();
-    mount(() => undefined, gameScreen(root, ctrl, { home, rules: () => rulesOverlay() }));
+    mount(() => undefined, gameScreen(root, ctrl, { home, rules: () => rulesOverlay(ctrl.view?.game ?? settings.game) }));
   });
   void isHost;
 }
@@ -373,18 +470,24 @@ async function joinScreen(room: string) {
     return;
   }
   const cfg = info.config;
+  const game: GameType = cfg.game ?? 'scopa';
+  const isBriscola = game === 'briscola';
   mount(() => {
     const name = h('input', { type: 'text', maxlength: 20, value: settings.name, placeholder: t('name'), autocomplete: 'nickname' }) as HTMLInputElement;
     return h(
       'div',
       { class: 'screen form join' },
-      h('div', { class: 'logo small' }, h('h1', null, 'Scopa')),
+      h('div', { class: 'logo small' }, h('h1', null, gameLabel(game))),
       h(
         'div',
         { class: 'glass-panel join-panel' },
-        h('h2', null, t('joinTitle')),
+        h('h2', null, isBriscola ? t('joinTitleBriscola') : t('joinTitle')),
         info!.host ? h('p', { class: 'host' }, icon('user'), h('span', null, info!.host)) : null,
-        h('p', { class: 'muted config-pill' }, `${t('targetScore')}: ${cfg.target} · ${t('turnTimer')}: ${cfg.turnSeconds ? `${cfg.turnSeconds}s` : t('none')}`),
+        h(
+          'p',
+          { class: 'muted config-pill' },
+          `${formatConfigTarget(game, cfg.target)} · ${t('turnTimer')}: ${cfg.turnSeconds ? `${cfg.turnSeconds}s` : t('none')}`,
+        ),
         h('label', { class: 'field' }, h('span', null, t('joinAs')), name),
         h(
           'button',
@@ -504,24 +607,52 @@ function settingsScreen() {
   });
 }
 
-function rulesContent(): HTMLElement {
-  return h('ol', { class: 'rules' }, ...rulesText().map((r) => h('li', null, r)));
+function rulesContent(game: GameType = settings.game): HTMLElement {
+  return h('ol', { class: 'rules' }, ...rulesText(game).map((r) => h('li', null, r)));
 }
 
 function rulesScreen(back: () => void) {
-  mount(() => h('div', { class: 'screen form' }, header(t('howToPlay'), back), introCard(), h('div', { class: 'glass-panel' }, rulesContent())));
+  let ruleGame: GameType = settings.game;
+  mount(() => {
+    const body = h('div', { class: 'rules-body' });
+    const renderBody = () => {
+      const panel = h('div', { class: 'glass-panel' }, rulesContent(ruleGame));
+      if (ruleGame === 'scopa') body.replaceChildren(introCard(), panel);
+      else body.replaceChildren(panel);
+    };
+    renderBody();
+    return h(
+      'div',
+      { class: 'screen form' },
+      header(t('howToPlay'), back),
+      segmented<GameType>(
+        [
+          { value: 'scopa', label: 'Scopa' },
+          { value: 'briscola', label: 'Briscola' },
+        ],
+        ruleGame,
+        (v) => {
+          ruleGame = v;
+          renderBody();
+        },
+      ),
+      body,
+    );
+  });
 }
 
-function rulesOverlay() {
+function rulesOverlay(game: GameType = settings.game) {
   const el = h(
     'div',
     { class: 'overlay show rules-ov' },
     h(
       'div',
       { class: 'sheet tall' },
-      h('h2', null, t('howToPlay')),
-      h('button', { class: 'btn ghost intro-overlay-btn', onclick: () => showIntroVideo() }, icon('play'), h('span', null, t('watchIntro'))),
-      rulesContent(),
+      h('h2', null, `${t('howToPlay')} · ${gameLabel(game)}`),
+      game === 'scopa'
+        ? h('button', { class: 'btn ghost intro-overlay-btn', onclick: () => showIntroVideo() }, icon('play'), h('span', null, t('watchIntro')))
+        : null,
+      rulesContent(game),
       h('button', { class: 'btn primary', onclick: () => el.remove() }, t('continue')),
     ),
   );
@@ -537,6 +668,8 @@ export function route(path: string) {
 }
 
 export function boot() {
+  const qGame = new URLSearchParams(location.search).get('game');
+  if (qGame === 'briscola' || qGame === 'scopa') updateSettings({ game: qGame });
   setLang(settings.lang);
   startMusic();
   void onDeepLink((path) => route(path));

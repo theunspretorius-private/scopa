@@ -1,12 +1,13 @@
-import type { Card } from '../engine/cards';
+import type { Card, Suit } from '../engine/cards';
 import type { MatchState, TargetScore } from '../engine/match';
 import { other, type PlayResult, type Seat } from '../engine/round';
-import type { Move } from '../engine/rules';
+import type { GameType, Move } from '../engine/rules';
 import type { RoundBreakdown } from '../engine/scoring';
 
 export type TurnSeconds = 0 | 15 | 30;
 
 export interface RoomConfig {
+  game?: GameType;
   target: TargetScore;
   turnSeconds: TurnSeconds;
   /** Casual rooms allow the live pile inspector. */
@@ -30,10 +31,13 @@ export interface LastPlay {
   leftover: string[];
   leftoverTo: Seat | null;
   timedOut?: boolean;
+  trickWinner?: Seat | null;
+  trickPoints?: number;
 }
 
 /** What one seat is allowed to see. The opponent's hand is only ever a count. */
 export interface GameView {
+  game: GameType;
   status: ViewStatus;
   you: Seat;
   names: [string, string];
@@ -46,6 +50,10 @@ export interface GameView {
   hand: string[];
   oppHandCount: number;
   deckCount: number;
+  /** Face-up Briscola card under the stock (null once drawn or in Scopa). */
+  trumpCard: string | null;
+  /** Active trump suit in Briscola (remains visible even after trumpCard is drawn). */
+  trumpSuit: Suit | null;
   capturedCount: [number, number];
   scope: [number, number];
   /** Your scopa cards (to draw perpendicular in the pile). */
@@ -78,6 +86,7 @@ export function toLastPlay(seq: number, r: PlayResult, timedOut = false): LastPl
     leftover: r.leftover.map((c) => c.id),
     leftoverTo: r.leftoverTo,
     ...(timedOut ? { timedOut } : {}),
+    ...(r.trickWinner !== undefined ? { trickWinner: r.trickWinner, trickPoints: r.trickPoints ?? 0 } : {}),
   };
 }
 
@@ -100,7 +109,9 @@ export function buildView(m: MatchState, seat: Seat, x: ViewExtras): GameView {
   const r = m.round;
   const me = r.players[seat];
   const ids = (cs: readonly Card[]) => cs.map((c) => c.id);
+  const game = m.game ?? r.game ?? 'scopa';
   return {
+    game,
     status: m.status,
     you: seat,
     names: x.names,
@@ -113,6 +124,8 @@ export function buildView(m: MatchState, seat: Seat, x: ViewExtras): GameView {
     hand: ids(me.hand),
     oppHandCount: r.players[other(seat)].hand.length,
     deckCount: r.deck.length,
+    trumpCard: game === 'briscola' && r.deck.length > 0 && r.trumpCard ? r.trumpCard.id : null,
+    trumpSuit: game === 'briscola' ? (r.trumpSuit ?? r.trumpCard?.suit ?? null) : null,
     capturedCount: [r.players[0].captured.length, r.players[1].captured.length],
     scope: [r.players[0].scope, r.players[1].scope],
     scopaCards: [r.players[0].scopaCards.slice(), r.players[1].scopaCards.slice()],
@@ -155,6 +168,7 @@ export type ServerMsg =
   | { t: 'pong' };
 
 export interface CreateRoomRequest {
+  game?: GameType;
   target: TargetScore;
   turnSeconds: TurnSeconds;
   inspector: boolean;
@@ -167,3 +181,4 @@ export interface CreateRoomResponse {
 }
 
 export const ROOM_ID_RE = /^[A-Za-z0-9]{6}$/;
+

@@ -4,9 +4,10 @@ import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomInt } from 'node:crypto';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { TARGET_SCORES } from '../src/engine/match';
+import { BRISCOLA_TARGET_SCORES, TARGET_SCORES } from '../src/engine/match';
 import { isCardId } from '../src/engine/cards';
 import type { Seat } from '../src/engine/round';
+import type { GameType } from '../src/engine/rules';
 import { EMOTES, ROOM_ID_RE, type ClientMsg, type CreateRoomResponse, type RoomConfig, type ServerMsg } from '../src/net/protocol';
 import { Room } from './room';
 
@@ -37,9 +38,12 @@ function sendTo(room: Room, seat: Seat, msg: ServerMsg) {
 }
 
 function createRoom(body: Record<string, unknown>): CreateRoomResponse {
-  const target = TARGET_SCORES.includes(body.target as never) ? (body.target as RoomConfig['target']) : 11;
+  const game: GameType = body.game === 'briscola' ? 'briscola' : 'scopa';
+  const validTargets: readonly number[] = game === 'briscola' ? BRISCOLA_TARGET_SCORES : TARGET_SCORES;
+  const defaultTarget = game === 'briscola' ? 1 : 11;
+  const target = validTargets.includes(body.target as number) ? (body.target as RoomConfig['target']) : defaultTarget;
   const turnSeconds = ([0, 15, 30] as const).includes(body.turnSeconds as never) ? (body.turnSeconds as RoomConfig['turnSeconds']) : 30;
-  const config: RoomConfig = { target, turnSeconds, inspector: body.inspector !== false };
+  const config: RoomConfig = { game, target, turnSeconds, inspector: body.inspector !== false };
   const id = newRoomId();
   const room = new Room(id, config, cleanName(body.name) || 'Player 1', (seat, msg) => sendTo(room, seat, msg));
   rooms.set(id, room);

@@ -1,9 +1,9 @@
-import type { Card } from '../engine/cards';
+import { cardById, type Card } from '../engine/cards';
 import { shuffle, type Rng } from '../engine/rng';
 import { applyMove, other, type RoundState, type Seat } from '../engine/round';
 import { legalMoves, type Move } from '../engine/rules';
-import { roundPoints } from '../engine/scoring';
-import { scoreMove, type ScoredContext } from './heuristics';
+import { briscolaRoundPoints, roundPoints } from '../engine/scoring';
+import { scoreBriscolaMove, scoreMove, type BriscolaScoredContext, type ScoredContext } from './heuristics';
 import { ids2cards, unseenCards, type AIObservation } from './observation';
 
 export interface HardOptions {
@@ -19,15 +19,17 @@ const UCB_C = 2.5; // rewards are round-point differentials, roughly in [-6, 6]
 /**
  * Maestro.
  * - Perfect card counting: unseen = 40 − (hand ∪ table ∪ both capture piles).
+ * - In Briscola, the face-up trump card at the bottom of the stock is also known.
  * - When the stock is empty the unseen cards are exactly the opponent's hand, so the rest of the
  *   round (≤ 6 cards) is solved with full-depth minimax + alpha-beta.
  * - Otherwise: determinized Monte Carlo search — each iteration samples a consistent opponent hand
  *   and stock order, picks a root move by UCB1, and plays out the round with a heuristic policy.
  */
 export function hardMove(obs: AIObservation, rng: Rng, opts: HardOptions = {}): Move {
+  const game = obs.game ?? 'scopa';
   const hand = ids2cards(obs.hand);
   const table = ids2cards(obs.table);
-  const moves = legalMoves(hand, table);
+  const moves = legalMoves(hand, table, game);
   if (moves.length === 1) return moves[0];
 
   const unseen = unseenCards(obs);
@@ -43,7 +45,9 @@ function buildState(obs: AIObservation, oppHand: Card[], deck: Card[]): RoundSta
   ];
   players[me] = { hand: ids2cards(obs.hand), captured: ids2cards(obs.myCaptured), scope: obs.myScope, scopaCards: [] };
   players[other(me)] = { hand: oppHand, captured: ids2cards(obs.oppCaptured), scope: obs.oppScope, scopaCards: [] };
+  const trumpCard = obs.trumpCard ? cardById(obs.trumpCard) : null;
   return {
+    game: obs.game ?? 'scopa',
     deck,
     table: ids2cards(obs.table),
     players,
@@ -51,10 +55,19 @@ function buildState(obs: AIObservation, oppHand: Card[], deck: Card[]): RoundSta
     turn: me,
     lastCapturer: obs.lastCapturer,
     over: false,
+    trumpCard,
+    trumpSuit: obs.trumpSuit ?? trumpCard?.suit ?? null,
   };
 }
 
 const diffFor = (state: RoundState, me: Seat): number => {
+  if (state.game === 'briscola') {
+    const [a, b] = briscolaRoundPoints(state.players);
+    const myPts = me === 0 ? a : b;
+    const oppPts = me === 0 ? b : a;
+    const winBonus = myPts > 60 ? 3 : myPts === 60 ? 0 : -3;
+    return (myPts - oppPts) / 20 + winBonus;
+  }
   const [a, b] = roundPoints(state.players);
   return me === 0 ? a - b : b - a;
 };
@@ -62,12 +75,13 @@ const diffFor = (state: RoundState, me: Seat): number => {
 // ---------------------------------------------------------------- endgame: minimax
 
 export function solveEndgame(obs: AIObservation, unseen: Card[]): { move: Move; value: number } {
+  const game = obs.game ?? 'scopa';
   const root = buildState(obs, unseen.slice(0, obs.oppHandCount), []);
   const me = obs.seat;
   let best: Move | null = null;
   let bestVal = -Infinity;
   let alpha = -Infinity;
-  for (const m of orderMoves(root, legalMoves(root.players[me].hand, root.table))) {
+  for (const m of orderMoves(root, legalMoves(root.players[me].hand, root.table, game))) {
     const v = alphabeta(applyMove(root, m).state, me, alpha, Infinity);
     if (v > bestVal) {
       bestVal = v;
@@ -80,7 +94,8 @@ export function solveEndgame(obs: AIObservation, unseen: Card[]): { move: Move; 
 
 function alphabeta(state: RoundState, me: Seat, alpha: number, beta: number): number {
   if (state.over) return diffFor(state, me);
-  const moves = orderMoves(state, legalMoves(state.players[state.turn].hand, state.table));
+  const game = state.game ?? 'scopa';
+  const moves = orderMoves(state, legalMoves(state.players[state.turn].hand, state.table, game));
   if (state.turn === me) {
     let v = -Infinity;
     for (const m of moves) {
@@ -111,12 +126,17 @@ function monteCarlo(obs: AIObservation, unseen: Card[], moves: Move[], rng: Rng,
   const n = new Array<number>(moves.length).fill(0);
   const sum = new Array<number>(moves.length).fill(0);
   const me = obs.seat;
+  const isBriscola = obs.game === 'briscola';
+  const knownTrump = isBriscola && obs.deckCount > 0 && obs.trumpCard ? cardById(obs.trumpCard) : null;
+  const pool = knownTrump ? unseen.filter((c) => c.id !== knownTrump.id) : unseen;
 
   let iter = 0;
   for (; iter < maxIter; iter++) {
     if ((iter & 31) === 0 && iter >= moves.length * 4 && now() > deadline) break;
-    const sample = shuffle(unseen, rng);
-    const root = buildState(obs, sample.slice(0, obs.oppHandCount), sample.slice(obs.oppHandCount));
+    const sample = shuffle(pool, rng);
+    const oppHand = sample.slice(0, obs.oppHandCount);
+    const deck = knownTrump ? [...sample.slice(obs.oppHandCount), knownTrump] : sample.slice(obs.oppHandCount);
+    const root = buildState(obs, oppHand, deck);
 
     // UCB1 at the root.
     let i = -1;
@@ -148,10 +168,32 @@ function monteCarlo(obs: AIObservation, unseen: Card[], moves: Move[], rng: Rng,
 
 /** Fast greedy policy with a little noise; sees only its own hand and the table. */
 export function rolloutPolicy(state: RoundState, rng: Rng): Move {
+  const game = state.game ?? 'scopa';
   const seat = state.turn;
   const hand = state.players[seat].hand;
-  const moves = legalMoves(hand, state.table);
+  const moves = legalMoves(hand, state.table, game);
   if (moves.length === 1 || rng() < ROLLOUT_EPSILON) return moves[Math.floor(rng() * moves.length)];
+
+  if (game === 'briscola') {
+    const bCtx: BriscolaScoredContext = {
+      hand,
+      table: state.table,
+      trumpSuit: state.trumpSuit ?? state.trumpCard?.suit ?? 'DENARI',
+      deckCount: state.deck.length,
+      trumpCard: state.trumpCard,
+    };
+    let best = moves[0];
+    let bestScore = -Infinity;
+    for (const m of moves) {
+      const s = scoreBriscolaMove(m, bCtx);
+      if (s > bestScore) {
+        bestScore = s;
+        best = m;
+      }
+    }
+    return best;
+  }
+
   const oppCards = state.players[other(seat)].hand.length;
   const ctx: ScoredContext = {
     hand,
@@ -170,3 +212,4 @@ export function rolloutPolicy(state: RoundState, rng: Rng): Move {
   }
   return best;
 }
+

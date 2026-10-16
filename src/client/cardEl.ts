@@ -10,9 +10,9 @@ export function cardLabel(id: string): string {
   return `${c.rank} ${SUIT_NAMES[c.suit]}`;
 }
 
-export function cardEl(id: string, extraClass = ''): HTMLElement {
+export function cardEl(id: string, extraClass = '', highlightSettebello = true): HTMLElement {
   const el = h('div', {
-    class: `card ${extraClass}${id === 'DENARI_7' ? ' settebello' : ''}`,
+    class: `card ${extraClass}${highlightSettebello && id === 'DENARI_7' ? ' settebello' : ''}`,
     'data-id': id,
     'aria-label': cardLabel(id),
     html: cardSVG(id, settings.deck, settings.showNumbers),

@@ -1,14 +1,20 @@
 import type { Rng } from './rng';
 import { applyMove, dealRound, other, type PlayResult, type RoundState, type Seat } from './round';
-import type { Move } from './rules';
-import { scoreRound, type RoundBreakdown } from './scoring';
+import type { GameType, Move } from './rules';
+import { scoreBriscolaRound, scoreRound, type RoundBreakdown } from './scoring';
 
-export type TargetScore = 11 | 16 | 21;
-export const TARGET_SCORES: readonly TargetScore[] = [11, 16, 21];
+export type ScopaTargetScore = 11 | 16 | 21;
+export type BriscolaTargetScore = 1 | 2 | 3;
+export type TargetScore = ScopaTargetScore | BriscolaTargetScore;
+
+export const TARGET_SCORES: readonly ScopaTargetScore[] = [11, 16, 21];
+export const BRISCOLA_TARGET_SCORES: readonly BriscolaTargetScore[] = [1, 2, 3];
+export const ALL_TARGET_SCORES: readonly TargetScore[] = [11, 16, 21, 1, 2, 3];
 
 export type MatchStatus = 'IN_PROGRESS' | 'ROUND_END' | 'MATCH_OVER';
 
 export interface MatchState {
+  game: GameType;
   target: TargetScore;
   scores: [number, number];
   roundNumber: number;
@@ -26,13 +32,14 @@ export function matchWinner(scores: readonly [number, number], target: number): 
   return a > b ? 0 : 1;
 }
 
-export function newMatch(target: TargetScore, rng: Rng, firstDealer?: Seat): MatchState {
+export function newMatch(target: TargetScore, rng: Rng, firstDealer?: Seat, game: GameType = 'scopa'): MatchState {
   const dealer: Seat = firstDealer ?? (rng() < 0.5 ? 0 : 1);
   return {
+    game,
     target,
     scores: [0, 0],
     roundNumber: 1,
-    round: dealRound(dealer, rng),
+    round: dealRound(dealer, rng, game),
     status: 'IN_PROGRESS',
     lastBreakdown: null,
     history: [],
@@ -45,7 +52,10 @@ export function playMove(match: MatchState, move: Move): { match: MatchState; re
   const { state, result } = applyMove(match.round, move);
   const next: MatchState = { ...match, round: state };
   if (state.over) {
-    const breakdown = scoreRound(state.players, match.scores, match.roundNumber);
+    const breakdown =
+      match.game === 'briscola'
+        ? scoreBriscolaRound(state.players, match.scores, match.roundNumber, state.trumpSuit)
+        : scoreRound(state.players, match.scores, match.roundNumber);
     next.scores = [breakdown.player1.newTotalScore, breakdown.player2.newTotalScore];
     next.lastBreakdown = breakdown;
     next.history = [...match.history, breakdown];
@@ -61,7 +71,7 @@ export function nextRound(match: MatchState, rng: Rng): MatchState {
   return {
     ...match,
     roundNumber: match.roundNumber + 1,
-    round: dealRound(other(match.round.dealer), rng),
+    round: dealRound(other(match.round.dealer), rng, match.game),
     status: 'IN_PROGRESS',
   };
 }
@@ -70,4 +80,5 @@ export function nextRound(match: MatchState, rng: Rng): MatchState {
 export function forfeit(match: MatchState, loser: Seat): MatchState {
   return { ...match, status: 'MATCH_OVER', winner: other(loser) };
 }
+
 

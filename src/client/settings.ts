@@ -1,11 +1,13 @@
 import type { Difficulty } from '../ai/observation';
-import type { TargetScore } from '../engine/match';
+import type { BriscolaTargetScore, ScopaTargetScore } from '../engine/match';
+import type { GameType } from '../engine/rules';
 import type { TurnSeconds } from '../net/protocol';
 import { detectLang, type Lang } from './i18n';
 
 export type DeckId = 'napoletane' | 'piacentine' | 'siciliane' | 'bergamasche' | 'trevisane' | 'milanesi';
 
 export interface Settings {
+  game: GameType;
   lang: Lang;
   deck: DeckId;
   showNumbers: boolean;
@@ -15,7 +17,8 @@ export interface Settings {
   emotesMuted: boolean;
   name: string;
   lastDifficulty: Difficulty;
-  lastTarget: TargetScore;
+  lastTarget: ScopaTargetScore;
+  lastBriscolaTarget: BriscolaTargetScore;
   lastTurnSeconds: TurnSeconds;
   lastInspector: boolean;
 }
@@ -31,6 +34,7 @@ const KEY = 'scopa.settings.v1';
 const STATS_KEY = 'scopa.stats.v1';
 
 const defaults = (): Settings => ({
+  game: 'scopa',
   lang: detectLang(),
   deck: 'napoletane',
   showNumbers: true, // ON by default for new users
@@ -41,6 +45,7 @@ const defaults = (): Settings => ({
   name: '',
   lastDifficulty: 'MEDIUM',
   lastTarget: 11,
+  lastBriscolaTarget: 1,
   lastTurnSeconds: 30,
   lastInspector: true,
 });
