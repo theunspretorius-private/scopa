@@ -3,11 +3,11 @@ import type { Seat } from '../../engine/round';
 import { captureOptions, type Move } from '../../engine/rules';
 import { primiera } from '../../engine/scoring';
 import { EMOTES, type EmoteId, type GameView } from '../../net/protocol';
-import { currentTrack, musicIcon, sfx, skipTrack, toggleMusic } from '../audio';
+import { currentTrack, sfx, skipTrack, toggleMusic } from '../audio';
 import { backEl, cardEl } from '../cardEl';
 import type { ConnStatus, GameController } from '../controllers/types';
 import { DECKS } from '../decks';
-import { h, sleep, toast } from '../dom';
+import { h, icon, sleep, toast } from '../dom';
 import { t } from '../i18n';
 import { haptic } from '../native';
 import { recordResult, settings } from '../settings';
@@ -51,17 +51,19 @@ const other = (s: Seat): Seat => (s === 0 ? 1 : 0);
 
 export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav): () => void {
   // ---------------------------------------------------------------- skeleton
+  const oppAvatar = h('span', { class: 'p-avatar opp-av' }, icon(ctrl.kind === 'local' ? 'bot' : 'user'));
   const oppName = h('span', { class: 'p-name' });
   const oppScore = h('span', { class: 'p-score' });
   const oppHand = h('div', { class: 'opp-hand' });
   const oppPile = h('div', { class: 'pile opp' });
   const oppTimer = h('div', { class: 'timer' });
   const oppBubble = h('div', { class: 'bubble opp', 'aria-live': 'polite' });
-  const menuBtn = h('button', { class: 'icon-btn', 'aria-label': 'Menu', onclick: () => openMenu() }, '☰');
+  const menuBtn = h('button', { class: 'icon-btn', 'aria-label': 'Menu', onclick: () => openMenu() }, icon('menu'));
   const oppBar = h(
     'header',
     { class: 'bar opp-bar' },
     menuBtn,
+    oppAvatar,
     h('div', { class: 'p-info' }, h('div', { class: 'p-line' }, oppName, oppScore), oppHand),
     oppPile,
     oppTimer,
@@ -84,6 +86,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
 
   const handEl = h('section', { class: 'hand', 'aria-label': t('you') });
 
+  const meAvatar = h('span', { class: 'p-avatar me-av' }, icon('user'));
   const meName = h('span', { class: 'p-name' });
   const meScore = h('span', { class: 'p-score' });
   const mePile = h('button', { class: 'pile me', onclick: () => openInspector() });
@@ -101,10 +104,10 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
         toast(`🎵 ${trk.title}`);
       },
     },
-    '⏭',
+    icon('skip'),
   );
-  const emoteBtn = h('button', { class: 'icon-btn', 'aria-label': 'Emotes', onclick: () => openEmotes() }, '💬');
-  const meBar = h('footer', { class: 'bar me-bar' }, h('div', { class: 'p-line' }, meName, meScore), mePile, skipMusicBtn, emoteBtn, meTimer, meBubble);
+  const emoteBtn = h('button', { class: 'icon-btn', 'aria-label': 'Emotes', onclick: () => openEmotes() }, icon('chat'));
+  const meBar = h('footer', { class: 'bar me-bar' }, meAvatar, h('div', { class: 'p-line' }, meName, meScore), mePile, skipMusicBtn, emoteBtn, meTimer, meBubble);
 
   const connEl = h('div', { class: 'conn hidden' });
   const overlay = h('div', { class: 'overlay hidden' });
@@ -164,7 +167,7 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
       kids.push(c);
     });
     kids.push(h('span', { class: 'count' }, `${count}`));
-    if (scopaCards.length) kids.push(h('span', { class: 'scopa-count', title: t('scope') }, `🧹${scopaCards.length}`));
+    if (scopaCards.length) kids.push(h('span', { class: 'scopa-count', title: t('scope') }, `✦ ${scopaCards.length}`));
     el.replaceChildren(...kids);
     el.setAttribute('aria-label', `${t('pile')}: ${count} ${t('cards')}, ${t('scope')}: ${scopaCards.length}`);
   }
@@ -526,17 +529,17 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
   }
 
   function musicBtn() {
-    const label = () => `${musicIcon()} ${t('music')}`;
-    const b = h('button', { class: 'btn ghost', 'aria-pressed': String(settings.music) }, label());
+    const renderContent = () => [icon(settings.music ? 'volumeOn' : 'volumeOff'), h('span', null, t('music'))];
+    const b = h('button', { class: 'btn ghost', 'aria-pressed': String(settings.music) }, ...renderContent());
     b.addEventListener('click', () => {
       b.setAttribute('aria-pressed', String(toggleMusic()));
-      b.textContent = label();
+      b.replaceChildren(...renderContent());
     });
     return b;
   }
 
   function skipBtn(onSkip?: () => void) {
-    const b = h('button', { class: 'btn ghost', 'aria-label': t('nextTrack'), title: t('nextTrack') }, `⏭ ${t('nextTrack')}`);
+    const b = h('button', { class: 'btn ghost', 'aria-label': t('nextTrack'), title: t('nextTrack') }, icon('skip'), h('span', null, t('nextTrack')));
     b.addEventListener('click', () => {
       const trk = skipTrack();
       sfx.tick();
@@ -550,12 +553,12 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
     const quit = () => {
       if (shown?.status === 'MATCH_OVER' || confirm(t('quitConfirm'))) nav.home();
     };
-    const trackLabel = h('p', { class: 'muted menu-track-name' }, `🎵 ${currentTrack().title}`);
+    const trackLabel = h('p', { class: 'muted menu-track-name' }, icon('music'), h('span', null, currentTrack().title));
     const mBtn = musicBtn();
     const sBtn = skipBtn(() => {
       mBtn.setAttribute('aria-pressed', String(settings.music));
-      mBtn.textContent = `${musicIcon()} ${t('music')}`;
-      trackLabel.textContent = `🎵 ${currentTrack().title}`;
+      mBtn.replaceChildren(icon(settings.music ? 'volumeOn' : 'volumeOff'), h('span', null, t('music')));
+      trackLabel.replaceChildren(icon('music'), h('span', null, currentTrack().title));
     });
     openOverlay(
       'menu',
@@ -563,8 +566,8 @@ export function gameScreen(root: HTMLElement, ctrl: GameController, nav: GameNav
         'div',
         { class: 'sheet' },
         h('h2', null, 'Scopa'),
-        h('button', { class: 'btn', onclick: () => closeOverlay() }, t('continue')),
-        h('button', { class: 'btn ghost', onclick: () => nav.rules() }, t('howToPlay')),
+        h('button', { class: 'btn primary', onclick: () => closeOverlay() }, t('continue')),
+        h('button', { class: 'btn ghost', onclick: () => nav.rules() }, icon('book'), h('span', null, t('howToPlay'))),
         h('div', { class: 'row' }, mBtn, sBtn),
         trackLabel,
         h('button', { class: 'btn danger', onclick: quit }, t('quit')),

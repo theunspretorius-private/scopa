@@ -1,5 +1,5 @@
 import { holdMusic } from './audio';
-import { h } from './dom';
+import { h, icon } from './dom';
 import { t } from './i18n';
 
 let activeOverlay: HTMLElement | null = null;
@@ -43,14 +43,14 @@ export function showIntroVideo() {
       title: t('close'),
       onclick: () => close(),
     },
-    '✕',
+    icon('close'),
   );
 
   const sheet = h(
     'div',
     { class: 'intro-modal-sheet' },
     closeBtn,
-    h('div', { class: 'intro-modal-title' }, '🎬 Scopa'),
+    h('div', { class: 'intro-modal-title' }, icon('play'), ' Scopa'),
     video,
   );
 
@@ -77,7 +77,7 @@ export function introCard(): HTMLElement {
   const card = h(
     'div',
     { class: 'intro-video-card', role: 'button', tabIndex: 0, onclick: () => showIntroVideo() },
-    h('div', { class: 'intro-card-icon' }, '▶'),
+    h('div', { class: 'intro-card-icon' }, icon('play')),
     h(
       'div',
       { class: 'intro-card-info' },
@@ -93,3 +93,4 @@ export function introCard(): HTMLElement {
   });
   return card;
 }
+

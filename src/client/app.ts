@@ -2,13 +2,13 @@ import { DIFFICULTIES, type Difficulty } from '../ai/observation';
 import { TARGET_SCORES, type TargetScore } from '../engine/match';
 import { ROOM_ID_RE, type CreateRoomResponse, type RoomConfig, type TurnSeconds } from '../net/protocol';
 import qrcode from 'qrcode-generator';
-import { currentTrack, musicIcon, sfx, skipTrack, startMusic, toggleMusic, unlockAudio } from './audio';
+import { currentTrack, sfx, skipTrack, startMusic, toggleMusic, unlockAudio } from './audio';
 import { cardEl } from './cardEl';
 import { LocalController } from './controllers/local';
 import { OnlineController } from './controllers/online';
 import type { GameController } from './controllers/types';
 import { DECKS, DECK_ORDER } from './decks';
-import { h, segmented, toast, toggle } from './dom';
+import { h, icon, segmented, toast, toggle } from './dom';
 import { LANGS, LANG_NAMES, rulesText, setLang, t, type Lang } from './i18n';
 import { introCard, showIntroVideo } from './introVideo';
 import { copyText, onDeepLink, publicOrigin, serverOrigin, shareLink } from './native';
@@ -40,7 +40,7 @@ const header = (title: string, back: () => void = home) =>
   h(
     'header',
     { class: 'top' },
-    h('button', { class: 'icon-btn', 'aria-label': t('back'), onclick: back }, '‹'),
+    h('button', { class: 'icon-btn back-btn', 'aria-label': t('back'), onclick: back }, icon('back')),
     h('h1', null, title),
     h(
       'button',
@@ -54,7 +54,7 @@ const header = (title: string, back: () => void = home) =>
           toast(`🎵 ${trk.title}`);
         },
       },
-      '⏭',
+      icon('skip'),
     ),
   );
 
@@ -64,38 +64,77 @@ export function home() {
   endGame();
   setPath('/');
   mount(() => {
-    const fan = h('div', { class: 'hero-fan' }, ...['COPPE_10', 'DENARI_7', 'SPADE_1'].map((id, i) => cardEl(id, `hero h${i}`)));
-    const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music'), title: t('music') }, musicIcon());
+    const fan = h(
+      'div',
+      { class: 'hero-fan' },
+      h('div', { class: 'hero-glow', 'aria-hidden': 'true' }),
+      ...['COPPE_10', 'DENARI_7', 'SPADE_1'].map((id, i) => cardEl(id, `hero h${i}`)),
+    );
+    const renderMuteIcon = () => icon(settings.music ? 'volumeOn' : 'volumeOff');
+    const muteBtn = h('button', { class: 'icon-btn music-btn', 'aria-label': t('music'), title: t('music') }, renderMuteIcon());
     muteBtn.addEventListener('click', () => {
       toggleMusic();
-      muteBtn.textContent = musicIcon();
+      muteBtn.replaceChildren(renderMuteIcon());
     });
     const skipBtn = h(
       'button',
       { class: 'icon-btn music-skip-btn', 'aria-label': t('nextTrack'), title: t('nextTrack') },
-      '⏭',
+      icon('skip'),
     );
     skipBtn.addEventListener('click', () => {
       const trk = skipTrack();
-      muteBtn.textContent = musicIcon();
+      muteBtn.replaceChildren(renderMuteIcon());
       sfx.tick();
       toast(`🎵 ${trk.title}`);
     });
     const musicControls = h('div', { class: 'music-controls' }, muteBtn, skipBtn);
+
+    const totalGames = stats.wins + stats.losses;
+    const winRate = totalGames > 0 ? `${Math.round((stats.wins / totalGames) * 100)}%` : '—';
+
     return h(
       'div',
       { class: 'screen home' },
       musicControls,
-      h('div', { class: 'logo' }, h('h1', null, 'Scopa'), h('p', null, t('tagline'))),
+      h(
+        'div',
+        { class: 'logo' },
+        h('span', { class: 'logo-badge' }, '✦ GIOCO DELLE CARTE ✦'),
+        h('h1', null, 'Scopa'),
+        h('p', null, t('tagline')),
+      ),
       fan,
       h(
         'nav',
         { class: 'menu' },
-        h('button', { class: 'btn primary big', onclick: localSetup }, '🃏 ', t('playPc')),
-        h('button', { class: 'btn primary big alt', onclick: friendSetup }, '🔗 ', t('playFriend')),
-        h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: settingsScreen }, '⚙︎ ', t('settings')), h('button', { class: 'btn ghost', onclick: () => rulesScreen(home) }, '📖 ', t('howToPlay'))),
+        h(
+          'button',
+          { class: 'btn primary big cta-btn', onclick: localSetup },
+          h('span', { class: 'cta-icon' }, icon('cards')),
+          h('span', { class: 'cta-label' }, t('playPc')),
+        ),
+        h(
+          'button',
+          { class: 'btn primary big alt cta-btn', onclick: friendSetup },
+          h('span', { class: 'cta-icon' }, icon('users')),
+          h('span', { class: 'cta-label' }, t('playFriend')),
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          h('button', { class: 'btn ghost glass-tile', onclick: settingsScreen }, icon('settings'), h('span', null, t('settings'))),
+          h('button', { class: 'btn ghost glass-tile', onclick: () => rulesScreen(home) }, icon('book'), h('span', null, t('howToPlay'))),
+        ),
       ),
-      h('p', { class: 'stats-line' }, `${t('wins')}: ${stats.wins} · ${t('losses')}: ${stats.losses}`),
+      h(
+        'div',
+        { class: 'stats-bar' },
+        h('div', { class: 'stat-pill' }, h('strong', null, String(stats.wins)), h('span', null, t('wins'))),
+        h('div', { class: 'stat-divider' }),
+        h('div', { class: 'stat-pill' }, h('strong', null, String(stats.losses)), h('span', null, t('losses'))),
+        h('div', { class: 'stat-divider' }),
+        h('div', { class: 'stat-pill' }, h('strong', null, winRate), h('span', null, 'Win %')),
+      ),
       h(
         'p',
         { class: 'seo-links' },
@@ -130,7 +169,8 @@ function localSetup() {
               },
             },
             h('span', { class: 'dot' }),
-            h('span', null, h('b', null, t(d)), h('small', null, t(`${d}_desc` as 'EASY_desc'))),
+            h('span', { class: 'choice-body' }, h('b', null, t(d)), h('small', null, t(`${d}_desc` as 'EASY_desc'))),
+            h('span', { class: 'choice-check' }, icon('check')),
           ),
         ),
       );
@@ -139,13 +179,21 @@ function localSetup() {
       'div',
       { class: 'screen form' },
       header(t('playPc')),
-      h('h3', null, t('difficulty')),
-      cards,
-      h('h3', null, t('targetScore')),
-      segmented(
-        TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ''}` })),
-        target,
-        (v) => (target = v),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('h3', null, t('difficulty')),
+        cards,
+      ),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('h3', null, t('targetScore')),
+        segmented(
+          TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ''}` })),
+          target,
+          (v) => (target = v),
+        ),
       ),
       h(
         'button',
@@ -181,7 +229,7 @@ function friendSetup() {
   let inspector = settings.lastInspector;
   mount(() => {
     const name = h('input', { type: 'text', maxlength: 20, value: settings.name, placeholder: t('name'), autocomplete: 'nickname' }) as HTMLInputElement;
-    const btn = h('button', { class: 'btn primary big' }, t('createLink'));
+    const btn = h('button', { class: 'btn primary big' }, icon('link'), h('span', null, t('createLink')));
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       updateSettings({ name: name.value.trim(), lastTarget: target, lastTurnSeconds: turnSeconds, lastInspector: inspector });
@@ -204,24 +252,28 @@ function friendSetup() {
       'div',
       { class: 'screen form' },
       header(t('playFriend')),
-      h('label', { class: 'field' }, h('span', null, t('name')), name),
-      h('h3', null, t('targetScore')),
-      segmented(
-        TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ` · ${t('long')}`}` })),
-        target,
-        (v) => (target = v),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('label', { class: 'field' }, h('span', null, t('name')), name),
+        h('h3', null, t('targetScore')),
+        segmented(
+          TARGET_SCORES.map((v) => ({ value: v, label: `${v}${v === 11 ? ` · ${t('standard')}` : ` · ${t('long')}`}` })),
+          target,
+          (v) => (target = v),
+        ),
+        h('h3', null, t('turnTimer')),
+        segmented<TurnSeconds>(
+          [
+            { value: 15, label: '15s' },
+            { value: 30, label: '30s' },
+            { value: 0, label: t('none') },
+          ],
+          turnSeconds,
+          (v) => (turnSeconds = v),
+        ),
+        toggle(t('pileInspector'), inspector, (v) => (inspector = v), t('pileInspectorDesc')),
       ),
-      h('h3', null, t('turnTimer')),
-      segmented<TurnSeconds>(
-        [
-          { value: 15, label: '15s' },
-          { value: 30, label: '30s' },
-          { value: 0, label: t('none') },
-        ],
-        turnSeconds,
-        (v) => (turnSeconds = v),
-      ),
-      toggle(t('pileInspector'), inspector, (v) => (inspector = v), t('pileInspectorDesc')),
       btn,
     );
   });
@@ -236,7 +288,7 @@ function waitingScreen(room: string, config: RoomConfig) {
   const qr = qrcode(0, 'M');
   qr.addData(url);
   qr.make();
-  const copyBtn = h('button', { class: 'btn ghost' }, '📋 ', t('copy'));
+  const copyBtn = h('button', { class: 'btn ghost' }, icon('copy'), h('span', null, t('copy')));
   copyBtn.addEventListener('click', async () => {
     if (await copyText(url)) toast(t('copied'));
   });
@@ -248,12 +300,21 @@ function waitingScreen(room: string, config: RoomConfig) {
     'div',
     { class: 'screen form invite' },
     header(t('inviteTitle')),
-    h('p', null, t('inviteText')),
-    h('div', { class: 'link-box' }, h('code', null, url)),
-    h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: share }, '↗︎ ', t('share')), copyBtn),
-    h('div', { class: 'qr', html: qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }) }),
-    h('p', { class: 'muted' }, `${t('targetScore')}: ${config.target} · ${t('turnTimer')}: ${config.turnSeconds ? `${config.turnSeconds}s` : t('none')}`),
-    h('div', { class: 'waiting' }, h('span', { class: 'spinner' }), t('waitingFor')),
+    h(
+      'div',
+      { class: 'glass-panel invite-panel' },
+      h('p', { class: 'invite-lead' }, t('inviteText')),
+      h('div', { class: 'link-box' }, h('code', null, url)),
+      h(
+        'div',
+        { class: 'row' },
+        h('button', { class: 'btn primary', onclick: share }, icon('share'), h('span', null, t('share'))),
+        copyBtn,
+      ),
+      h('div', { class: 'qr', html: qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true }) }),
+      h('p', { class: 'muted config-pill' }, `${t('targetScore')}: ${config.target} · ${t('turnTimer')}: ${config.turnSeconds ? `${config.turnSeconds}s` : t('none')}`),
+      h('div', { class: 'waiting' }, h('span', { class: 'spinner' }), h('span', null, t('waitingFor'))),
+    ),
   );
 }
 
@@ -318,23 +379,27 @@ async function joinScreen(room: string) {
       'div',
       { class: 'screen form join' },
       h('div', { class: 'logo small' }, h('h1', null, 'Scopa')),
-      h('h2', null, t('joinTitle')),
-      info!.host ? h('p', { class: 'host' }, `👤 ${info!.host}`) : null,
-      h('p', { class: 'muted' }, `${t('targetScore')}: ${cfg.target} · ${t('turnTimer')}: ${cfg.turnSeconds ? `${cfg.turnSeconds}s` : t('none')}`),
-      h('label', { class: 'field' }, h('span', null, t('joinAs')), name),
       h(
-        'button',
-        {
-          class: 'btn primary big',
-          onclick: () => {
-            unlockAudio();
-            updateSettings({ name: name.value.trim() });
-            startOnline(room, false);
+        'div',
+        { class: 'glass-panel join-panel' },
+        h('h2', null, t('joinTitle')),
+        info!.host ? h('p', { class: 'host' }, icon('user'), h('span', null, info!.host)) : null,
+        h('p', { class: 'muted config-pill' }, `${t('targetScore')}: ${cfg.target} · ${t('turnTimer')}: ${cfg.turnSeconds ? `${cfg.turnSeconds}s` : t('none')}`),
+        h('label', { class: 'field' }, h('span', null, t('joinAs')), name),
+        h(
+          'button',
+          {
+            class: 'btn primary big',
+            onclick: () => {
+              unlockAudio();
+              updateSettings({ name: name.value.trim() });
+              startOnline(room, false);
+            },
           },
-        },
-        t('join'),
+          t('join'),
+        ),
+        h('button', { class: 'btn ghost', onclick: home }, t('back')),
       ),
-      h('button', { class: 'btn ghost', onclick: home }, t('back')),
     );
   });
 }
@@ -349,25 +414,27 @@ function settingsScreen() {
         ...DECK_ORDER.map((id: DeckId) => {
           const d = DECKS[id];
           const unlocked = isDeckUnlocked(id);
+          const selected = settings.deck === id;
           const prevDeck = settings.deck;
           // Preview with this deck's art regardless of the current selection.
           settings.deck = id;
-          const preview = h('div', { class: 'deck-preview' }, cardEl('DENARI_7', 'thumb'), cardEl('COPPE_10', 'thumb'));
+          const preview = h('div', { class: 'deck-preview' }, cardEl('DENARI_7', 'thumb t0'), cardEl('COPPE_10', 'thumb t1'));
           settings.deck = prevDeck;
           return h(
             'button',
             {
-              class: `deck-choice ${settings.deck === id ? 'on' : ''} ${unlocked ? '' : 'locked'}`,
+              class: `deck-choice ${selected ? 'on' : ''} ${unlocked ? '' : 'locked'}`,
               disabled: !unlocked,
-              'aria-pressed': String(settings.deck === id),
+              'aria-pressed': String(selected),
               onclick: () => {
                 updateSettings({ deck: id });
                 renderDecks();
               },
             },
+            selected ? h('span', { class: 'deck-badge' }, icon('check')) : !unlocked ? h('span', { class: 'deck-badge locked-badge' }, icon('lock')) : null,
             preview,
             h('b', null, d.name),
-            h('small', null, unlocked ? d.region : `🔒 ${t(id === 'bergamasche' ? 'unlockBergamasche' : 'unlockTrevisane')}`),
+            h('small', null, unlocked ? d.region : t(id === 'bergamasche' ? 'unlockBergamasche' : 'unlockTrevisane')),
           );
         }),
       );
@@ -380,7 +447,7 @@ function settingsScreen() {
     });
     const name = h('input', { type: 'text', maxlength: 20, value: settings.name, placeholder: t('name') }) as HTMLInputElement;
     name.addEventListener('change', () => updateSettings({ name: name.value.trim() }));
-    const trackSpan = h('span', { class: 'muted music-track-name' }, `🎵 ${currentTrack().title}`);
+    const trackSpan = h('span', { class: 'muted music-track-name' }, icon('music'), h('span', null, currentTrack().title));
     const skipSettingBtn = h(
       'button',
       {
@@ -388,35 +455,51 @@ function settingsScreen() {
         onclick: () => {
           const trk = skipTrack();
           sfx.tick();
-          trackSpan.textContent = `🎵 ${trk.title}`;
+          trackSpan.replaceChildren(icon('music'), h('span', null, trk.title));
           toast(`🎵 ${trk.title}`);
         },
       },
-      '⏭ ',
-      t('nextTrack'),
+      icon('skip'),
+      h('span', null, t('nextTrack')),
     );
     return h(
       'div',
       { class: 'screen form' },
       header(t('settings')),
-      h('label', { class: 'field' }, h('span', null, t('name')), name),
-      h('label', { class: 'field' }, h('span', null, t('language')), lang),
-      h('h3', null, t('deckStyle')),
-      decks,
-      toggle(t('showNumbers'), settings.showNumbers, (v) => {
-        updateSettings({ showNumbers: v });
-        renderDecks();
-      }),
-      toggle(t('sound'), settings.sound, (v) => updateSettings({ sound: v })),
-      toggle(t('music'), settings.music, (v) => {
-        if (v !== settings.music) toggleMusic();
-      }),
-      h('div', { class: 'music-settings-row' }, trackSpan, skipSettingBtn),
-      toggle(t('haptics'), settings.haptics, (v) => updateSettings({ haptics: v })),
-      toggle(t('emotesMuted'), settings.emotesMuted, (v) => updateSettings({ emotesMuted: v })),
-      h('button', { class: 'btn ghost intro-settings-btn', onclick: () => showIntroVideo() }, '🎬 ', t('watchIntro')),
-      h('h3', null, t('stats')),
-      h('p', { class: 'muted' }, `${t('wins')}: ${stats.wins} · ${t('losses')}: ${stats.losses} · ${t('HARD')}: ${stats.winsByDifficulty.HARD}`),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('label', { class: 'field' }, h('span', null, t('name')), name),
+        h('label', { class: 'field' }, h('span', null, t('language')), lang),
+      ),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('h3', null, t('deckStyle')),
+        decks,
+        toggle(t('showNumbers'), settings.showNumbers, (v) => {
+          updateSettings({ showNumbers: v });
+          renderDecks();
+        }),
+      ),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        toggle(t('sound'), settings.sound, (v) => updateSettings({ sound: v })),
+        toggle(t('music'), settings.music, (v) => {
+          if (v !== settings.music) toggleMusic();
+        }),
+        h('div', { class: 'music-settings-row' }, trackSpan, skipSettingBtn),
+        toggle(t('haptics'), settings.haptics, (v) => updateSettings({ haptics: v })),
+        toggle(t('emotesMuted'), settings.emotesMuted, (v) => updateSettings({ emotesMuted: v })),
+        h('button', { class: 'btn ghost intro-settings-btn', onclick: () => showIntroVideo() }, icon('play'), h('span', null, t('watchIntro'))),
+      ),
+      h(
+        'div',
+        { class: 'glass-panel' },
+        h('h3', null, t('stats')),
+        h('p', { class: 'muted' }, `${t('wins')}: ${stats.wins} · ${t('losses')}: ${stats.losses} · ${t('HARD')}: ${stats.winsByDifficulty.HARD}`),
+      ),
     );
   });
 }
@@ -426,7 +509,7 @@ function rulesContent(): HTMLElement {
 }
 
 function rulesScreen(back: () => void) {
-  mount(() => h('div', { class: 'screen form' }, header(t('howToPlay'), back), introCard(), rulesContent()));
+  mount(() => h('div', { class: 'screen form' }, header(t('howToPlay'), back), introCard(), h('div', { class: 'glass-panel' }, rulesContent())));
 }
 
 function rulesOverlay() {
@@ -437,7 +520,7 @@ function rulesOverlay() {
       'div',
       { class: 'sheet tall' },
       h('h2', null, t('howToPlay')),
-      h('button', { class: 'btn ghost intro-overlay-btn', onclick: () => showIntroVideo() }, '🎬 ', t('watchIntro')),
+      h('button', { class: 'btn ghost intro-overlay-btn', onclick: () => showIntroVideo() }, icon('play'), h('span', null, t('watchIntro'))),
       rulesContent(),
       h('button', { class: 'btn primary', onclick: () => el.remove() }, t('continue')),
     ),
@@ -459,3 +542,4 @@ export function boot() {
   void onDeepLink((path) => route(path));
   route(location.pathname);
 }
+
