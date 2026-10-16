@@ -7,8 +7,8 @@ const SERVER = process.env.SCOPA_SERVER ?? 'http://localhost:8787';
 /** Crawlable pages, in sitemap order. */
 const PAGES = [
   { path: '/', priority: '1.0' },
-  { path: '/how-to-play-scopa/', priority: '0.8' },
-  { path: '/it/regole-scopa/', priority: '0.8' },
+  { path: '/how-to-play-scopa/', priority: '0.9' },
+  { path: '/it/regole-scopa/', priority: '0.9' },
 ];
 
 /**
@@ -26,7 +26,7 @@ function seo(site: string): Plugin {
       if (!site) return;
       const today = new Date().toISOString().slice(0, 10);
       const urls = PAGES.map(
-        (p) => `  <url><loc>${site}${p.path}</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>${p.priority}</priority></url>`,
+        (p) => `  <url><loc>${site}${p.path}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>${p.priority}</priority></url>`,
       );
       this.emitFile({
         type: 'asset',
@@ -38,7 +38,7 @@ function seo(site: string): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  const site = (loadEnv(mode, process.cwd(), 'VITE_').VITE_PUBLIC_URL ?? '').replace(/\/$/, '');
+  const site = (loadEnv(mode, process.cwd(), 'VITE_').VITE_PUBLIC_URL || 'https://scopa.afrispeel.co.za').replace(/\/$/, '');
   return {
     plugins: [seo(site)],
     server: {
